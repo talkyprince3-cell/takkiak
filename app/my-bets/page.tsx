@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Page } from "@/components/Shell";
 import { useSession } from "@/lib/store";
@@ -36,6 +37,7 @@ const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = 
   pending: { bg: "var(--pending)", fg: "#3a2500", label: "Open" },
   won: { bg: "var(--win)", fg: "#052e16", label: "Won" },
   lost: { bg: "var(--lose)", fg: "#450a12", label: "Lost" },
+  cashed_out: { bg: "var(--pending)", fg: "#3a2500", label: "Cashed out" },
   void: { bg: "var(--surface-2)", fg: "var(--text)", label: "Void" },
 };
 
@@ -70,7 +72,7 @@ export default function MyBetsPage() {
         <h1 className="text-[18px] font-black md:text-[20px]">My bets</h1>
 
         <div className="flex gap-1.5">
-          {["all", "pending", "won", "lost"].map((f) => (
+          {["all", "pending", "won", "lost", "cashed_out"].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -81,7 +83,7 @@ export default function MyBetsPage() {
                   : { background: "var(--surface)", color: "var(--text-muted)" }
               }
             >
-              {f === "pending" ? "Open" : f}
+              {f === "pending" ? "Open" : f === "cashed_out" ? "Cashed out" : f}
             </button>
           ))}
         </div>
@@ -110,7 +112,7 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
 
   return (
     <article className="overflow-hidden rounded bg-[var(--bg-elevated)]">
-      <button onClick={() => setOpen((o) => !o)} className="w-full px-4 py-3 text-left">
+      <Link href={`/my-bets/${ticket.code}`} className="block w-full px-4 py-3 text-left">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[13px] font-black tracking-wider text-[var(--accent)]">{ticket.code}</p>
@@ -145,6 +147,13 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
             </dd>
           </div>
         </dl>
+      </Link>
+
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full border-t border-[var(--line)] py-2 text-[11px] font-semibold text-[var(--text-muted)]"
+      >
+        {open ? "Hide legs" : `Show ${ticket.selections.length} leg${ticket.selections.length === 1 ? "" : "s"}`}
       </button>
 
       {open && (

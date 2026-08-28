@@ -41,7 +41,9 @@ function RegisterForm() {
         return;
       }
       signIn(json.user);
-      router.push("/deposit");
+      // Straight to the board. A new player should see what they can bet on
+      // before being asked for money.
+      router.push("/");
     } catch {
       setError("Network problem. Try again.");
     } finally {

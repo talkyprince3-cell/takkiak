@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, Trash2, Settings, Check, CircleHelp } from "lucide-react";
-import { useSlip, useSession, type SlipMode } from "@/lib/store";
+import { ChevronDown, Trash2, Settings, CircleHelp } from "lucide-react";
+import { useSlip, useSession, type SlipMode, type SlipLeg } from "@/lib/store";
 import { formatMoney } from "@/lib/countries";
 import { BallIcon } from "@/components/icons";
 import { BookedCode } from "@/components/BookedCode";
+import { PlacedReceipt, type PlacedTicket } from "@/components/PlacedReceipt";
 import {
   bonusFor,
   bonusAmount,
@@ -26,16 +27,6 @@ import {
  * from the live board on submit, so a stale slip is rejected rather than struck
  * at the wrong number.
  */
-
-type Placed = {
-  code: string;
-  stake: number;
-  total_odds: number;
-  potential_win: number;
-  bonus: number;
-  currency: string;
-  mode: string;
-};
 
 const TABS: { key: SlipMode; label: string }[] = [
   { key: "single", label: "Single" },
@@ -65,8 +56,11 @@ export function BetSlip() {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The placed slip keeps the legs it was built from, so the receipt can show
+  // the selections back rather than only confirming.
   const [placed, setPlaced] = useState<{
-    ticket: Placed;
+    ticket: PlacedTicket;
+    legs: SlipLeg[];
     lines: number;
     totalCost: number;
     oddsChanged: { match: string; from: number; to: number }[];
@@ -138,6 +132,8 @@ export function BetSlip() {
       }
       setPlaced({
         ticket: json.ticket,
+        // Captured before the slip is cleared.
+        legs: [...legs],
         lines: json.lines,
         totalCost: json.totalCost,
         oddsChanged: json.oddsChanged ?? [],
@@ -190,9 +186,12 @@ export function BetSlip() {
         </button>
 
         {placed ? (
-          <Receipt
-            placed={placed}
-            currency={currency}
+          <PlacedReceipt
+            ticket={placed.ticket}
+            legs={placed.legs}
+            lines={placed.lines}
+            totalCost={placed.totalCost}
+            oddsChanged={placed.oddsChanged}
             onDone={() => {
               setPlaced(null);
               setOpen(false);
@@ -444,79 +443,6 @@ function Row({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between py-1.5">
       <dt className="text-[var(--text-muted)]">{label}</dt>
       <dd className="font-bold">{value}</dd>
-    </div>
-  );
-}
-
-function Receipt({
-  placed,
-  currency,
-  onDone,
-}: {
-  placed: {
-    ticket: Placed;
-    lines: number;
-    totalCost: number;
-    oddsChanged: { match: string; from: number; to: number }[];
-  };
-  currency: string;
-  onDone: () => void;
-}) {
-  const { ticket, lines, totalCost, oddsChanged } = placed;
-
-  return (
-    <div className="space-y-4 p-6 text-center">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-ink)]">
-        <Check size={30} strokeWidth={3} />
-      </div>
-
-      <div>
-        <p className="text-[12px] text-[var(--text-muted)]">
-          {lines > 1 ? `${lines} tickets placed · first code` : "Ticket code"}
-        </p>
-        <p className="text-2xl font-black tracking-widest text-[var(--accent)]">{ticket.code}</p>
-      </div>
-
-      {oddsChanged.length > 0 && (
-        <p className="mx-auto max-w-xs rounded bg-[var(--surface)] px-3 py-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
-          {oddsChanged.length === 1
-            ? `The price on ${oddsChanged[0].match} was ${oddsChanged[0].to.toFixed(2)} at placement, not ${oddsChanged[0].from.toFixed(2)}.`
-            : `${oddsChanged.length} prices differed from the board at placement. Your ticket shows what you were given.`}
-        </p>
-      )}
-
-      <dl className="mx-auto max-w-xs space-y-1 text-[13px]">
-        <div className="flex justify-between">
-          <dt className="text-[var(--text-muted)]">Paid</dt>
-          <dd className="font-bold">{formatMoney(totalCost, currency)}</dd>
-        </div>
-        {Number(ticket.bonus) > 0 && (
-          <div className="flex justify-between">
-            <dt className="text-[var(--text-muted)]">Bonus included</dt>
-            <dd className="font-bold text-[var(--accent)]">
-              {formatMoney(Number(ticket.bonus), currency)}
-            </dd>
-          </div>
-        )}
-        <div className="flex justify-between">
-          <dt className="text-[var(--text-muted)]">To win</dt>
-          <dd className="font-bold text-[var(--accent)]">
-            {formatMoney(Number(ticket.potential_win), currency)}
-          </dd>
-        </div>
-      </dl>
-
-      <div className="flex gap-2">
-        <Link href="/my-bets" className="flex-1 rounded py-3 text-[13px] font-bold ring-1 ring-[var(--line)]">
-          My bets
-        </Link>
-        <button
-          onClick={onDone}
-          className="flex-1 rounded bg-[var(--accent)] py-3 text-[13px] font-black text-[var(--accent-ink)]"
-        >
-          Keep betting
-        </button>
-      </div>
     </div>
   );
 }

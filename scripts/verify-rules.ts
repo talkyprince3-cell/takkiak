@@ -7,6 +7,7 @@ import { deriveMarkets, driftOdds } from "../lib/odds";
 import { checkWithdrawalGate } from "../lib/withdrawals";
 import { buildMarkets } from "../lib/markets";
 import { resolveSelection } from "../lib/resolve";
+import { cashoutOffer, CASHOUT_MARGIN, type CashoutLeg } from "../lib/cashout";
 import { correctScoreMarket, goalCountMarkets, ratesFromOdds } from "../lib/scoreline";
 import { standing, maskPhone, TIERS } from "../lib/tiers";
 import {
@@ -21,6 +22,7 @@ import {
 const LOYALTY_HEADING = "\nLoyalty tiers";
 const SLIP_HEADING = "\nAccumulator bonus and system lines";
 const RESOLVE_HEADING = "\nSelection resolution across both vocabularies";
+const CASHOUT_HEADING = "\nCashout valuation";
 
 let failures = 0;
 
@@ -395,6 +397,66 @@ console.log(RESOLVE_HEADING);
   check("a nonsense outcome refuses", resolveSelection(upstream, "1x2", "banana") === null);
   check("a market not on this fixture refuses",
     resolveSelection(upstream, "cs", "2:1") === null);
+}
+
+console.log(CASHOUT_HEADING);
+{
+  const leg = (p: Partial<CashoutLeg>): CashoutLeg => ({
+    state: "pending",
+    odds: 2,
+    currentOdds: 2,
+    live: false,
+    ...p,
+  });
+
+  // Nothing has moved: the offer is the stake back, less the margin.
+  const flat = cashoutOffer(100, 400, [leg({}), leg({})]);
+  check("a ticket with unmoved prices offers about the stake",
+    Math.abs(flat.amount - 100 * (1 - CASHOUT_MARGIN)) < 0.02, String(flat.amount));
+
+  // A leg already won is banked, so the offer rises.
+  const oneWon = cashoutOffer(100, 400, [leg({ state: "won" }), leg({})]);
+  check("a won leg raises the offer", oneWon.amount > flat.amount,
+    `${oneWon.amount} vs ${flat.amount}`);
+
+  // A shortening price means the remaining leg is likelier, so the offer rises.
+  const shortened = cashoutOffer(100, 400, [leg({ state: "won" }), leg({ currentOdds: 1.2 })]);
+  check("a shortening price raises the offer", shortened.amount > oneWon.amount,
+    `${shortened.amount} vs ${oneWon.amount}`);
+
+  // A drifting price means it is less likely, so the offer falls.
+  const drifted = cashoutOffer(100, 400, [leg({ state: "won" }), leg({ currentOdds: 6 })]);
+  check("a drifting price lowers the offer", drifted.amount < oneWon.amount,
+    `${drifted.amount} vs ${oneWon.amount}`);
+
+  // The offer can never exceed what the ticket could actually pay.
+  const capped = cashoutOffer(100, 150, [leg({ state: "won" }), leg({ currentOdds: 1.01 })]);
+  check("the offer never exceeds the potential win", capped.amount <= 150, String(capped.amount));
+
+  // The book keeps its margin: an offer always sits under fair value, which is
+  // the full payout weighted by the chance of collecting it.
+  const nearCertain = 1.0001;
+  const fair = 400 * (1 / nearCertain);
+  const marginKept = cashoutOffer(100, 400, [leg({ state: "won" }), leg({ currentOdds: nearCertain })]);
+  check("the offer sits under fair value", marginKept.amount < fair,
+    `${marginKept.amount} vs ${fair.toFixed(2)}`);
+  check("and keeps roughly the stated margin",
+    Math.abs(marginKept.amount - fair * (1 - CASHOUT_MARGIN)) < 0.05, String(marginKept.amount));
+
+  console.log("  --- refusals ---");
+  check("a lost leg refuses",
+    cashoutOffer(100, 400, [leg({ state: "lost" }), leg({})]).reason === "leg-lost");
+  check("an in-play leg refuses",
+    cashoutOffer(100, 400, [leg({ live: true }), leg({})]).reason === "in-play");
+  check("an unpriced leg refuses",
+    cashoutOffer(100, 400, [leg({ currentOdds: null }), leg({})]).reason === "no-live-price");
+  check("a fully won ticket refuses — it is a winner, not a cashout",
+    cashoutOffer(100, 400, [leg({ state: "won" }), leg({ state: "won" })]).reason === "already-decided");
+  check("an empty ticket refuses", cashoutOffer(100, 400, []).reason === "already-decided");
+  check("a worthless offer refuses",
+    cashoutOffer(1, 400, [leg({ currentOdds: 50 }), leg({ currentOdds: 50 })]).reason === "too-small");
+  check("every refusal offers zero",
+    cashoutOffer(100, 400, [leg({ state: "lost" })]).amount === 0);
 }
 
 console.log(failures === 0 ? "\nAll rule checks passed.\n" : `\n${failures} check(s) failed.\n`);
