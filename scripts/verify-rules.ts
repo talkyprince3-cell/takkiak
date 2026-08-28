@@ -7,6 +7,9 @@ import { deriveMarkets, driftOdds } from "../lib/odds";
 import { checkWithdrawalGate } from "../lib/withdrawals";
 import { buildMarkets } from "../lib/markets";
 import { correctScoreMarket, goalCountMarkets, ratesFromOdds } from "../lib/scoreline";
+import { standing, maskPhone, TIERS } from "../lib/tiers";
+
+const LOYALTY_HEADING = "\nLoyalty tiers";
 
 let failures = 0;
 
@@ -240,6 +243,39 @@ console.log("\nDerived scoreline markets (operator fixtures)");
   check("odd/even is produced", oe.key === "oe" && oe.prices.length === 2);
   check("exact goals is produced", eg.key === "eg" && eg.prices.length > 3);
   check("exact goals carries a 6+ bucket", eg.prices.some((p) => p.outcome === "6+"));
+}
+
+console.log(LOYALTY_HEADING);
+{
+  const rookie = standing(0);
+  check("no turnover starts at the bottom tier", rookie.current.name === "Rookie");
+  check("the next tier is named", rookie.next?.name === "Golden Boy");
+  check("progress starts at zero", rookie.progress === 0);
+  check("nothing is earned at the bottom rate", rookie.potentialReward === 0);
+
+  const golden = standing(204);
+  check("204 points is Golden Boy", golden.current.name === "Golden Boy", golden.current.name);
+  check("Captain is next", golden.next?.name === "Captain");
+  check("1,796 points to Captain", golden.toNext === 1796, String(golden.toNext));
+  check("progress sits inside the band", golden.progress > 0 && golden.progress < 1);
+  check("a reward accrues once past the first tier", golden.potentialReward > 0);
+
+  const exact = standing(2000);
+  check("landing exactly on a threshold promotes", exact.current.name === "Captain", exact.current.name);
+
+  const top = standing(1_000_000);
+  check("the top tier has no next", top.next === null);
+  check("the top tier reads as complete", top.progress === 1);
+  check("the top tier still needs nothing", top.toNext === 0);
+
+  const negative = standing(-50);
+  check("negative turnover is floored, not crashed", negative.points === 0);
+
+  check("every tier is ordered by threshold",
+    TIERS.every((t, i2) => i2 === 0 || t.at > TIERS[i2 - 1].at));
+
+  check("a phone is masked", maskPhone("233501234586") === "50******6", maskPhone("233501234586"));
+  check("a short value is left alone", maskPhone("12") === "12");
 }
 
 console.log(failures === 0 ? "\nAll rule checks passed.\n" : `\n${failures} check(s) failed.\n`);

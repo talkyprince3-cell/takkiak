@@ -30,6 +30,10 @@ export async function GET(req: Request) {
   const country = getCountry(user.country_code);
   const gate = checkWithdrawalGate(user, 0);
 
+  // Tier points come from turnover, so they are summed off the stakes.
+  const { data: staked } = await supabase.from("bets").select("stake").eq("user_id", user.id);
+  const tierPoints = (staked ?? []).reduce((sum, b) => sum + Number(b.stake), 0);
+
   // A partner betting on their own account sees a way back to the dashboard.
   const { data: partner } = await supabase
     .from("sub_admins")
@@ -55,5 +59,6 @@ export async function GET(req: Request) {
       progress: gate.progress,
     },
     partner: partner ?? null,
+    tierPoints: Math.floor(tierPoints),
   });
 }
