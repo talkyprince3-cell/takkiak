@@ -30,6 +30,13 @@ export async function GET(req: Request) {
   const country = getCountry(user.country_code);
   const gate = checkWithdrawalGate(user, 0);
 
+  // A partner betting on their own account sees a way back to the dashboard.
+  const { data: partner } = await supabase
+    .from("sub_admins")
+    .select("id, referral_code, approved")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
   return NextResponse.json({
     user,
     country: {
@@ -47,5 +54,6 @@ export async function GET(req: Request) {
       failed: gate.failed,
       progress: gate.progress,
     },
+    partner: partner ?? null,
   });
 }

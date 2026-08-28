@@ -7,7 +7,7 @@
 export type PayoutRail = "mobile" | "bank";
 export type Gateway = "flutterwave_momo" | "flutterwave_checkout" | "korapay" | "moolre" | "paystack" | "manual";
 
-export type KycKind = "ghana_card" | "bvn" | "nin" | "national_id";
+export type KycKind = "bvn" | "nin" | "national_id";
 
 export interface CountryConfig {
   code: string;
@@ -28,13 +28,6 @@ export interface CountryConfig {
   networks: string[];
 }
 
-const GHANA_CARD = {
-  kind: "ghana_card" as const,
-  label: "Ghana Card number",
-  pattern: /^GHA-\d{9}-\d$/i,
-  hint: "GHA-000000000-0",
-};
-
 const BASE: Record<string, CountryConfig> = {
   GH: {
     code: "GH",
@@ -45,7 +38,9 @@ const BASE: Record<string, CountryConfig> = {
     phoneDigits: 9,
     gateway: "flutterwave_momo",
     payoutRail: "mobile",
-    kyc: [GHANA_CARD],
+    // Ghana collects no KYC value at sign-up; identity is carried by the
+    // mobile-money number, which is already name-verified by the network.
+    kyc: [],
     minFirstDeposit: 10,
     verificationAmount: 300,
     withdrawQualifyCount: 3,
@@ -142,6 +137,10 @@ export function normalisePhone(input: string, cc: string): string | null {
 
 export function validateKyc(value: string, cc: string): { ok: boolean; kind?: KycKind; error?: string } {
   const country = getCountry(cc);
+
+  // A market with no configured shapes does not ask for a KYC value at all.
+  if (!country.kyc.length) return { ok: true };
+
   const v = (value || "").trim().toUpperCase();
   for (const k of country.kyc) {
     if (k.pattern.test(v)) return { ok: true, kind: k.kind };

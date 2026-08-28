@@ -71,11 +71,13 @@ function RegisterForm() {
             placeholder="Password"
           />
 
-          <ShellInput
-            value={kycValue}
-            onChange={setKycValue}
-            placeholder={`${country.kyc[0].label} — ${country.kyc[0].hint}`}
-          />
+          {country.kyc.length > 0 && (
+            <ShellInput
+              value={kycValue}
+              onChange={setKycValue}
+              placeholder={`${country.kyc[0].label} — ${country.kyc[0].hint}`}
+            />
+          )}
 
           {showReferral ? (
             <ShellInput

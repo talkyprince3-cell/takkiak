@@ -23,6 +23,7 @@ interface MeResponse {
   };
   country: { name: string; currency: string; payoutRail: string };
   withdrawal: { unlocked: boolean; failed?: string; progress: { have: number; need: number; label: string } };
+  partner: { id: string; referral_code: string; approved: boolean } | null;
 }
 
 function AccountView() {
@@ -147,11 +148,27 @@ function AccountView() {
           <Stat label="Withdrawn" value={formatMoney(Number(u?.total_withdrawn ?? 0), player.currency)} />
         </section>
 
+        {data?.partner && (
+          <Link
+            href="/partner"
+            className="flex items-center justify-between rounded bg-[var(--surface)] px-4 py-3.5"
+          >
+            <span>
+              <span className="block text-[13px] font-bold">Partner dashboard</span>
+              <span className="block text-[11px] text-[var(--text-muted)]">
+                Code {data.partner.referral_code}
+                {data.partner.approved ? "" : " · awaiting approval"}
+              </span>
+            </span>
+            <span className="text-[var(--accent)]">›</span>
+          </Link>
+        )}
+
         <nav className="overflow-hidden rounded bg-[var(--bg-elevated)]">
           {[
             { href: "/my-bets", label: "My bets" },
             { href: "/load-code", label: "Load a booking code" },
-            { href: "/partner", label: "Become a partner" },
+            ...(data?.partner ? [] : [{ href: "/partner", label: "Become a partner" }]),
           ].map((item) => (
             <Link
               key={item.href}

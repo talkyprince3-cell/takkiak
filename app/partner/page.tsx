@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { WalletPanel } from "@/components/partner/WalletPanel";
 
 interface Partner {
   id: string;
   name: string;
   email: string;
+  phone: string | null;
   referral_code: string;
   approved: boolean;
+  user_id: string | null;
   balances: Record<string, number>;
   lifetime: Record<string, number>;
   payout_name: string | null;
@@ -17,10 +20,23 @@ interface Partner {
   payout_number: string | null;
 }
 
+interface Wallet {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  country_code: string;
+  currency: string;
+  balance: number;
+}
+
 interface Dashboard {
   partner: Partner;
   players: { id: string; name: string; phone: string; currency: string; total_deposited: number; created_at: string }[];
   commissions: { id: string; deposit_amount: number; currency: string; rate: number; amount: number; created_at: string }[];
+  wallet: Wallet | null;
+  creditedToday: number;
+  dailyLimit: number;
 }
 
 export default function PartnerPage() {
@@ -183,7 +199,7 @@ function PartnerAuth({ mode, onDone }: { mode: "login" | "register"; onDone: () 
 }
 
 function PartnerDashboard({ data, onReload }: { data: Dashboard; onReload: () => void }) {
-  const { partner, players, commissions } = data;
+  const { partner, players, commissions, wallet, creditedToday, dailyLimit } = data;
   const [payout, setPayout] = useState({
     payout_name: partner.payout_name ?? "",
     payout_network: partner.payout_network ?? "",
@@ -248,6 +264,15 @@ function PartnerDashboard({ data, onReload }: { data: Dashboard; onReload: () =>
           </button>
         </div>
       </section>
+
+      <WalletPanel
+        wallet={wallet}
+        approved={partner.approved}
+        defaultPhone={partner.phone}
+        creditedToday={creditedToday}
+        dailyLimit={dailyLimit}
+        onChanged={onReload}
+      />
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card label="Referred players" value={String(players.length)} />

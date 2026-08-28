@@ -1,34 +1,8 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { db } from "@/lib/supabase";
-import { PARTNER_COOKIE, partnerIdFromCookie, verifyPartner } from "@/lib/auth";
+import { currentPartner, publicPartner } from "@/lib/partner";
 
 export const dynamic = "force-dynamic";
-
-/**
- * Resolve the partner from their signed cookie. The signature covers the
- * current password hash, so rotating the password invalidates the session.
- */
-async function currentPartner() {
-  const supabase = db();
-  if (!supabase) return null;
-
-  const jar = await cookies();
-  const cookieValue = jar.get(PARTNER_COOKIE)?.value;
-  const id = partnerIdFromCookie(cookieValue);
-  if (!id) return null;
-
-  const { data: partner } = await supabase
-    .from("sub_admins")
-    .select("id, name, email, phone, referral_code, approved, balances, lifetime, payout_name, payout_network, payout_number, password_hash")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (!partner) return null;
-  if (!verifyPartner(cookieValue, partner.password_hash)) return null;
-
-  return partner;
-}
 
 /** Referred players, their deposits and the partner's earnings. */
 export async function GET() {
@@ -52,13 +26,37 @@ export async function GET() {
     .order("created_at", { ascending: false })
     .limit(200);
 
-  const { password_hash: _hash, ...safe } = partner;
-  void _hash;
+  // The partner's own betting wallet, when they have opened one.
+  let wallet = null;
+  if (partner.user_id) {
+    const { data } = await supabase
+      .from("users")
+      .select("id, name, phone, email, country_code, currency, balance")
+      .eq("id", partner.user_id)
+      .maybeSingle();
+    wallet = data ?? null;
+  }
+
+  // What they have self-credited in the last 24 hours, for the limit meter.
+  let creditedToday = 0;
+  if (partner.user_id) {
+    const since = new Date(Date.now() - 86_400_000).toISOString();
+    const { data: recent } = await supabase
+      .from("payments")
+      .select("amount")
+      .eq("user_id", partner.user_id)
+      .eq("provider", "partner")
+      .gte("created_at", since);
+    creditedToday = (recent ?? []).reduce((sum, r) => sum + Number(r.amount), 0);
+  }
 
   return NextResponse.json({
-    partner: safe,
+    partner: publicPartner(partner),
     players: players ?? [],
     commissions: commissions ?? [],
+    wallet,
+    creditedToday: Math.round(creditedToday * 100) / 100,
+    dailyLimit: Number(process.env.PARTNER_CREDIT_DAILY_MAX ?? 20000),
   });
 }
 
