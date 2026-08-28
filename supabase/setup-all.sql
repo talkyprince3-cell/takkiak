@@ -244,3 +244,13 @@ exception when duplicate_object then null; end $$;
 
 create index if not exists bets_group_idx on bets (group_code) where group_code is not null;
 
+-- ============ 0010_booking_share.sql ============
+-- Booking codes shared on a player's personal page.
+--
+-- A booking is private by default. Turning sharing on lists the code publicly
+-- on the player's page so other people can load the same selections.
+alter table bookings add column if not exists shared boolean not null default false;
+
+create index if not exists bookings_shared_idx
+  on bookings (created_by, created_at desc) where shared;
+

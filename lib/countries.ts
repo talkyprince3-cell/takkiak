@@ -21,6 +21,10 @@ export interface CountryConfig {
   payoutRail: PayoutRail;
   kyc: { kind: KycKind; label: string; pattern: RegExp; hint: string }[];
   minFirstDeposit: number;
+  /** Smallest top-up once the account is funded. */
+  minDeposit: number;
+  /** Largest single transaction the rail will take. */
+  maxDeposit: number;
   verificationAmount: number;
   /** Qualifying deposits needed to unlock withdrawals. 0 reverts to the cumulative-total rule. */
   withdrawQualifyCount: number;
@@ -42,6 +46,8 @@ const BASE: Record<string, CountryConfig> = {
     // mobile-money number, which is already name-verified by the network.
     kyc: [],
     minFirstDeposit: 10,
+    minDeposit: 1,
+    maxDeposit: 50000,
     verificationAmount: 300,
     withdrawQualifyCount: 3,
     withdrawQualifyAmount: 300,
@@ -61,6 +67,8 @@ const BASE: Record<string, CountryConfig> = {
       { kind: "nin", label: "NIN", pattern: /^\d{11}$/, hint: "11 digits" },
     ],
     minFirstDeposit: 500,
+    minDeposit: 100,
+    maxDeposit: 1000000,
     verificationAmount: 10000,
     withdrawQualifyCount: 3,
     withdrawQualifyAmount: 10000,
@@ -77,6 +85,8 @@ const BASE: Record<string, CountryConfig> = {
     payoutRail: "mobile",
     kyc: [{ kind: "national_id", label: "National ID", pattern: /^\d{7,8}$/, hint: "7 or 8 digits" }],
     minFirstDeposit: 50,
+    minDeposit: 10,
+    maxDeposit: 150000,
     verificationAmount: 2000,
     withdrawQualifyCount: 3,
     withdrawQualifyAmount: 2000,
@@ -93,6 +103,8 @@ const BASE: Record<string, CountryConfig> = {
     payoutRail: "bank",
     kyc: [{ kind: "national_id", label: "ID number", pattern: /^\d{13}$/, hint: "13 digits" }],
     minFirstDeposit: 50,
+    minDeposit: 10,
+    maxDeposit: 50000,
     verificationAmount: 500,
     withdrawQualifyCount: 3,
     withdrawQualifyAmount: 500,
@@ -114,6 +126,8 @@ export function getCountry(code: string | null | undefined): CountryConfig {
   return {
     ...base,
     minFirstDeposit: num(`MIN_FIRST_DEPOSIT_${base.code}`, base.minFirstDeposit),
+    minDeposit: num(`MIN_DEPOSIT_${base.code}`, base.minDeposit),
+    maxDeposit: num(`MAX_DEPOSIT_${base.code}`, base.maxDeposit),
     verificationAmount: num(`VERIFICATION_AMOUNT_${base.code}`, base.verificationAmount),
     withdrawQualifyCount: num(`WITHDRAW_QUALIFY_COUNT_${base.code}`, base.withdrawQualifyCount),
     withdrawQualifyAmount: num(`WITHDRAW_QUALIFY_AMOUNT_${base.code}`, base.withdrawQualifyAmount),
@@ -156,4 +170,13 @@ export function formatMoney(amount: number, currency: string): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+}
+
+
+/** "53****086" — enough of a number to recognise, not enough to reuse. */
+export function maskPhoneTail(phone: string): string {
+  const d = (phone || "").replace(/\D/g, "");
+  if (d.length < 6) return d;
+  const local = d.length > 9 ? d.slice(-9) : d;
+  return `${local.slice(0, 2)}****${local.slice(-3)}`;
 }

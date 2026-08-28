@@ -2,18 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  ChevronDown,
-  Trash2,
-  Settings,
-  Check,
-  Copy,
-  X,
-  CircleHelp,
-} from "lucide-react";
+import { ChevronDown, Trash2, Settings, Check, CircleHelp } from "lucide-react";
 import { useSlip, useSession, type SlipMode } from "@/lib/store";
 import { formatMoney } from "@/lib/countries";
 import { BallIcon } from "@/components/icons";
+import { BookedCode } from "@/components/BookedCode";
 import {
   bonusFor,
   bonusAmount,
@@ -78,7 +71,7 @@ export function BetSlip() {
     totalCost: number;
     oddsChanged: { match: string; from: number; to: number }[];
   } | null>(null);
-  const [booked, setBooked] = useState<string | null>(null);
+  const [booked, setBooked] = useState<{ code: string; expiresAt: string | null } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const currency = player?.currency ?? "GHS";
@@ -172,7 +165,7 @@ export function BetSlip() {
         setError(json.error ?? "Could not book your slip");
         return;
       }
-      setBooked(json.code);
+      setBooked({ code: json.code, expiresAt: json.expiresAt ?? null });
     } catch {
       setError("Network problem. Try again.");
     } finally {
@@ -207,9 +200,11 @@ export function BetSlip() {
           />
         ) : booked ? (
           <BookedCode
-            code={booked}
+            code={booked.code}
+            expiresAt={booked.expiresAt}
             onDone={() => {
               setBooked(null);
+              clear();
               setOpen(false);
             }}
           />
@@ -520,40 +515,6 @@ function Receipt({
           className="flex-1 rounded bg-[var(--accent)] py-3 text-[13px] font-black text-[var(--accent-ink)]"
         >
           Keep betting
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function BookedCode({ code, onDone }: { code: string; onDone: () => void }) {
-  const [copied, setCopied] = useState(false);
-
-  return (
-    <div className="space-y-4 p-6 text-center">
-      <p className="text-[13px] text-[var(--text-muted)]">
-        Share this code. Anyone can load the same selections.
-      </p>
-      <p className="text-3xl font-black tracking-[0.2em] text-[var(--accent)]">{code}</p>
-      <div className="flex gap-2">
-        <button
-          onClick={() => {
-            navigator.clipboard?.writeText(code).then(
-              () => setCopied(true),
-              () => setCopied(false),
-            );
-          }}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded py-3 text-[13px] font-bold ring-1 ring-[var(--line)]"
-        >
-          <Copy size={14} strokeWidth={2} />
-          {copied ? "Copied" : "Copy code"}
-        </button>
-        <button
-          onClick={onDone}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded bg-[var(--accent)] py-3 text-[13px] font-black text-[var(--accent-ink)]"
-        >
-          <X size={14} strokeWidth={2.4} />
-          Done
         </button>
       </div>
     </div>

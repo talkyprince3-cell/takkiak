@@ -3,10 +3,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Search, LayoutGrid, Gamepad2, ReceiptText, User } from "lucide-react";
 import { useSession, useSlip } from "@/lib/store";
 import { BrandIcon } from "@/components/icons";
+import { AccountDrawer } from "@/components/AccountDrawer";
 import { formatMoney } from "@/lib/countries";
 
 /**
@@ -22,7 +23,7 @@ import { formatMoney } from "@/lib/countries";
  * screen. Form panels (login, deposit) keep their own narrow measure.
  */
 
-function HeaderActions() {
+function HeaderActions({ onOpenAccount }: { onOpenAccount: () => void }) {
   const player = useSession((s) => s.player);
   const hydrated = useSession((s) => s.hydrated);
   const setBalance = useSession((s) => s.setBalance);
@@ -72,11 +73,13 @@ function HeaderActions() {
 
   return (
     <>
-      <Link href="/account" className="text-right leading-tight">
-        <span className="block text-[13px] font-bold text-[var(--accent)]">
-          {formatMoney(Number(player.balance), player.currency)}
-        </span>
-      </Link>
+      <button
+        onClick={onOpenAccount}
+        aria-label="Account and balance"
+        className="rounded-full px-3 py-1 text-[13px] font-bold text-[var(--accent)] ring-1 ring-[var(--accent)]"
+      >
+        {formatMoney(Number(player.balance), player.currency)}
+      </button>
       <Link
         href="/deposit"
         className="rounded-[3px] bg-[var(--accent)] px-3 py-1.5 text-[13px] font-medium text-[var(--accent-ink)]"
@@ -88,6 +91,8 @@ function HeaderActions() {
 }
 
 export function Header() {
+  const [accountOpen, setAccountOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-40 bg-[var(--surface)]">
       <div className="flex h-[44px] w-full items-center gap-2 px-2.5 md:px-5">
@@ -99,9 +104,11 @@ export function Header() {
           <Link href="/search" aria-label="Search" className="p-1 text-[var(--text-bright)]">
             <Search size={21} strokeWidth={2} />
           </Link>
-          <HeaderActions />
+          <HeaderActions onOpenAccount={() => setAccountOpen(true)} />
         </div>
       </div>
+
+      <AccountDrawer open={accountOpen} onClose={() => setAccountOpen(false)} />
     </header>
   );
 }
