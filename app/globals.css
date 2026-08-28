@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Betlixx token layer.
+
+   Values are taken from the football.com Ghana mobile build, whose theme is
+   expressed as RGB triples behind semantic names (--brand-primary,
+   --background-type1-*, --text-type1-*). The names below are ours; the values
+   are the dark theme that site actually ships.
+
+   The one thing worth knowing when editing: an odds button is DARKER than the
+   row it sits in, not lighter. That inversion is what makes the board read.
+   --------------------------------------------------------------------------- */
+:root {
+  /* Grounds */
+  --bg: #100e26;          /* background-type1-secondary — the page */
+  --bg-elevated: #1c1a31; /* background-type1-primary — cards, panels, footer */
+  --surface: #282450;     /* brand-primary — header, league bars */
+  --surface-2: #352f5c;   /* background-type2-tertiary — chips, inputs */
+  --surface-3: #2a2453;   /* background-type2-secondary */
+  --line: #28263c;        /* background-type1-tertiary — dividers */
+  --odds-btn: #100e26;    /* background-outcome-dark-btn */
+  --disabled: #343247;    /* background-disable-type1-primary */
+
+  /* Brand */
+  --accent: #9ff611;      /* brand-secondary / brand-active */
+  --accent-ink: #100e26;  /* brand-tertiary — type on lime */
+  --accent-dim: #7fc50e;  /* btn-bookbet */
+  --focus: #c5fa70;       /* highlight-focus */
+
+  /* Type */
+  --text: #e7e7e9;        /* text-type1-primary */
+  --text-muted: #878693;  /* text-type1-secondary */
+  --text-faint: #4a4959;  /* text-disable-type1-primary */
+  --text-bright: #ffffff; /* text-type1-tertiary */
+
+  /* State */
+  --win: #16ea84;         /* boost-color / odds-rise-primary */
+  --win-2: #12ca72;       /* odds-rise-secondary */
+  --lose: #fb4d3d;        /* warning-primary */
+  --lose-bg: #3c0f1c;     /* warning-tertiary / background-notice */
+  --pending: #ffd63a;     /* c-payout-boost */
+  --live: #fb4d3d;
+  --hint: #3685e2;        /* highlight-hint */
+  --hint-bg: #4d5fae;     /* background-hint-type1 */
+
+  /* Form fields sit on the dark ground like the rest of the app. The reference
+     login uses a pale fill; four of those stacked on the register form read as
+     a different site, so the shell stays dark and the accent marks focus. */
+  --field: #1b1938;
+  --field-line: #35325c;
+  --input: #12102b;
+  --input-ink: #f2f1f8;
+  --input-placeholder: #6f6a95;
+
+  --radius: 4px;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-odds-btn: var(--odds-btn);
+  --color-disabled: var(--disabled);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-dim: var(--accent-dim);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-win: var(--win);
+  --color-lose: var(--lose);
+  --color-pending: var(--pending);
+  --color-live: var(--live);
+  --color-hint: var(--hint);
+  --color-field: var(--field);
+  --color-input: var(--input);
+}
+
+html {
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  /* Roboto is the face the reference build ships, with a metric-compatible
+     fallback stack so the layout does not shift before the webfont lands. */
+  font-family: var(--font-roboto), "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Noto Sans", sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  overscroll-behavior-y: none;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Sportsbook rows are dense; the scrollbar is noise. */
+.scroll-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+.live-dot {
+  animation: blink 1.4s ease-in-out infinite;
+}
+
+/* Price movement, the way a board shows it: a brief tint, not a jump. */
+@keyframes odds-rise {
+  0% { color: var(--win); }
+  100% { color: var(--text); }
+}
+@keyframes odds-fall {
+  0% { color: var(--lose); }
+  100% { color: var(--text); }
+}
+.odds-rise { animation: odds-rise 1.2s ease-out; }
+.odds-fall { animation: odds-fall 1.2s ease-out; }
