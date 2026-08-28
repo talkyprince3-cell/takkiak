@@ -3,6 +3,7 @@ import { db } from "@/lib/supabase";
 import { getMatchDetail } from "@/lib/fixtures";
 import { resolveSelection } from "@/lib/resolve";
 import { cashoutOffer, refusalMessage, type CashoutLeg } from "@/lib/cashout";
+import { cashoutEnabled } from "@/lib/schema";
 
 /**
  * Accept a cashout.
@@ -25,6 +26,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
   const expected = Number(body?.expected);
 
   if (!userId) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+
+  // Without the columns from migration 0011 there is nowhere to record the
+  // amount, and a cashout with no record is not one worth taking.
+  if (!(await cashoutEnabled())) {
+    return NextResponse.json(
+      { error: "Cashout is not enabled on this deployment yet." },
+      { status: 503 },
+    );
+  }
 
   const { data: bet } = await supabase
     .from("bets")

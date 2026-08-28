@@ -39,6 +39,8 @@ interface SlipState {
   remove: (matchId: string) => void;
   toggle: (leg: SlipLeg) => void;
   clear: () => void;
+  /** Empty the slip but keep the sheet open, so a receipt can be shown. */
+  clearLegs: () => void;
   setStake: (stake: number) => void;
   setOpen: (open: boolean) => void;
   setMode: (mode: SlipMode) => void;
@@ -84,6 +86,7 @@ export const useSlip = create<SlipState>()(
         }),
 
       clear: () => set({ legs: [], open: false }),
+      clearLegs: () => set({ legs: [] }),
       setStake: (stake) => set({ stake: Math.max(0, stake) }),
       setOpen: (open) => set({ open }),
       setMode: (mode) => set({ mode }),

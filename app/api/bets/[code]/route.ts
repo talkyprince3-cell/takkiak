@@ -4,6 +4,7 @@ import { getMatchDetail } from "@/lib/fixtures";
 import { resolveSelection } from "@/lib/resolve";
 import { cashoutOffer, type CashoutLeg } from "@/lib/cashout";
 import { settleBets } from "@/lib/settle";
+import { cashoutEnabled } from "@/lib/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -23,12 +24,19 @@ export async function GET(req: Request, ctx: { params: Promise<{ code: string }>
 
   await settleBets({ userId }).catch(() => {});
 
-  const { data: bet } = await supabase
+  // Selected with * rather than a column list: naming a column the database
+  // has not been migrated to yet makes PostgREST reject the whole query, and a
+  // missing migration would then be indistinguishable from a missing ticket.
+  const { data: bet, error: betErr } = await supabase
     .from("bets")
-    .select("id, code, user_id, stake, total_odds, potential_win, bonus, currency, status, payout, mode, group_code, cashout_amount, settled_at, created_at")
+    .select("*")
     .eq("code", code.toUpperCase())
     .maybeSingle();
 
+  if (betErr) {
+    console.error("[ticket] query failed", code, betErr);
+    return NextResponse.json({ error: "Could not load this ticket" }, { status: 500 });
+  }
   if (!bet) return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
   if (bet.user_id !== userId) {
     return NextResponse.json({ error: "That is not your ticket" }, { status: 403 });
@@ -69,13 +77,27 @@ export async function GET(req: Request, ctx: { params: Promise<{ code: string }>
     }
   }
 
+  // Cashout needs columns from a later migration; without them the feature is
+  // simply not offered rather than breaking the page.
+  const canCashout = await cashoutEnabled();
+
   const offer =
-    bet.status === "pending"
+    bet.status === "pending" && canCashout
       ? cashoutOffer(Number(bet.stake), Number(bet.potential_win), cashLegs)
-      : { available: false, amount: 0, potential: Number(bet.potential_win), reason: "already-decided" as const };
+      : {
+          available: false,
+          amount: 0,
+          potential: Number(bet.potential_win),
+          reason: bet.status === "pending" ? "unavailable" : "already-decided",
+        };
 
   return NextResponse.json({
-    bet,
+    bet: {
+      ...bet,
+      bonus: bet.bonus ?? 0,
+      mode: bet.mode ?? "multiple",
+      cashout_amount: bet.cashout_amount ?? null,
+    },
     selections: selections.map((l) => ({ ...l, ...(live[l.id] ?? {}) })),
     cashout: offer,
   });

@@ -480,6 +480,8 @@ function reasonText(reason: string): string {
       return "Cashout unavailable: one of these markets is no longer priced.";
     case "too-small":
       return "The cashout value is too small to offer.";
+    case "unavailable":
+      return "Cashout is not enabled on this deployment yet.";
     default:
       return "Cashout is not available on this ticket.";
   }
