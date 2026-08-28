@@ -24,16 +24,26 @@ export interface SlipLeg {
   odds: number;
 }
 
+export type SlipMode = "single" | "multiple" | "system";
+
 interface SlipState {
   legs: SlipLeg[];
   stake: number;
   open: boolean;
+  mode: SlipMode;
+  /** Combination size for a system ticket. */
+  systemSize: number;
+  /** Whether a price that drifts before submit is accepted silently. */
+  acceptOddsChanges: boolean;
   add: (leg: SlipLeg) => void;
   remove: (matchId: string) => void;
   toggle: (leg: SlipLeg) => void;
   clear: () => void;
   setStake: (stake: number) => void;
   setOpen: (open: boolean) => void;
+  setMode: (mode: SlipMode) => void;
+  setSystemSize: (size: number) => void;
+  setAcceptOddsChanges: (accept: boolean) => void;
   load: (legs: SlipLeg[]) => void;
   has: (matchId: string, market: string, outcome: string) => boolean;
   totalOdds: () => number;
@@ -48,6 +58,9 @@ export const useSlip = create<SlipState>()(
       legs: [],
       stake: 10,
       open: false,
+      mode: "multiple",
+      systemSize: 2,
+      acceptOddsChanges: true,
 
       add: (leg) =>
         set((s) => {
@@ -73,6 +86,9 @@ export const useSlip = create<SlipState>()(
       clear: () => set({ legs: [], open: false }),
       setStake: (stake) => set({ stake: Math.max(0, stake) }),
       setOpen: (open) => set({ open }),
+      setMode: (mode) => set({ mode }),
+      setSystemSize: (systemSize) => set({ systemSize: Math.max(2, systemSize) }),
+      setAcceptOddsChanges: (acceptOddsChanges) => set({ acceptOddsChanges }),
       load: (legs) => set({ legs: legs.slice(0, MAX_LEGS), open: true }),
 
       has: (matchId, market, outcome) =>
@@ -88,7 +104,16 @@ export const useSlip = create<SlipState>()(
         return Math.round(stake * get().totalOdds() * 100) / 100;
       },
     }),
-    { name: "betlixx-slip", partialize: (s) => ({ legs: s.legs, stake: s.stake }) },
+    {
+      name: "betlixx-slip",
+      partialize: (s) => ({
+        legs: s.legs,
+        stake: s.stake,
+        mode: s.mode,
+        systemSize: s.systemSize,
+        acceptOddsChanges: s.acceptOddsChanges,
+      }),
+    },
   ),
 );
 

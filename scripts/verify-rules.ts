@@ -6,10 +6,21 @@ import { matchClock, scoreFromTimeline } from "../lib/clock";
 import { deriveMarkets, driftOdds } from "../lib/odds";
 import { checkWithdrawalGate } from "../lib/withdrawals";
 import { buildMarkets } from "../lib/markets";
+import { resolveSelection } from "../lib/resolve";
 import { correctScoreMarket, goalCountMarkets, ratesFromOdds } from "../lib/scoreline";
 import { standing, maskPhone, TIERS } from "../lib/tiers";
+import {
+  bonusFor,
+  bonusAmount,
+  potentialWin,
+  combinations,
+  combinationCount,
+  systemSizes,
+} from "../lib/bonus";
 
 const LOYALTY_HEADING = "\nLoyalty tiers";
+const SLIP_HEADING = "\nAccumulator bonus and system lines";
+const RESOLVE_HEADING = "\nSelection resolution across both vocabularies";
 
 let failures = 0;
 
@@ -276,6 +287,114 @@ console.log(LOYALTY_HEADING);
 
   check("a phone is masked", maskPhone("233501234586") === "50******6", maskPhone("233501234586"));
   check("a short value is left alone", maskPhone("12") === "12");
+}
+
+console.log(SLIP_HEADING);
+{
+  // A short leg does not count toward the bonus, which is what stops a ticket
+  // being padded with 1.01 shots to buy the rate without taking any risk.
+  const padded = bonusFor([2.0, 1.8, 1.05]);
+  check("a leg under the qualifying price does not count", padded.qualifying === 2, String(padded.qualifying));
+  check("two qualifying legs earn nothing", padded.rate === 0);
+
+  const three = bonusFor([2.0, 1.8, 1.5]);
+  check("three qualifying legs earn a bonus", three.rate > 0, String(three.rate));
+
+  const ten = bonusFor(Array(10).fill(1.5));
+  const twelve = bonusFor(Array(12).fill(1.5));
+  check("the rate rises with the leg count", twelve.rate > ten.rate);
+
+  const single = bonusFor([2.5]);
+  check("a single earns no bonus", single.rate === 0);
+  check("it reports how many more legs are needed", single.toNext > 0);
+
+  // The bonus is a share of the profit, never of the stake coming back.
+  const amount = bonusAmount(100, 3.0, [1.5, 1.5, 1.4]);
+  check("the bonus is taken from the profit", amount > 0 && amount < 200, String(amount));
+  check("a losing-shaped ticket pays no bonus", bonusAmount(100, 1.0, [1.5, 1.5, 1.4]) === 0);
+  check("the return includes the bonus", potentialWin(100, 3.0, [1.5, 1.5, 1.4]) > 300);
+  check("no bonus means the plain return", potentialWin(100, 2.0, [2.0]) === 200);
+
+  // System lines.
+  check("2 from 4 is six lines", combinationCount(4, 2) === 6);
+  check("3 from 5 is ten lines", combinationCount(5, 3) === 10);
+  check("n from n is one line", combinationCount(4, 4) === 1);
+
+  const combos = combinations([1, 2, 3, 4], 2);
+  check("the combinations are actually built", combos.length === 6, String(combos.length));
+  check("every combination is the right size", combos.every((c) => c.length === 2));
+  check("no combination repeats a selection",
+    combos.every((c) => new Set(c).size === c.length));
+  check("no two combinations are the same",
+    new Set(combos.map((c) => c.join(","))).size === combos.length);
+
+  check("a system needs three selections", systemSizes(2).length === 0);
+  check("four selections offer 2/4 and 3/4",
+    systemSizes(4).join(",") === "2,3", systemSizes(4).join(","));
+  check("a full-cover size is not offered as a system", !systemSizes(4).includes(4));
+}
+
+console.log(RESOLVE_HEADING);
+{
+  // What a fixture looks like once the real book has priced it.
+  const upstream = buildMarkets([
+    {
+      id: 1,
+      name: "Book",
+      bets: [
+        { id: 1, name: "Match Winner", values: [
+          { value: "Home", odd: "3.16" }, { value: "Draw", odd: "3.22" }, { value: "Away", odd: "2.90" },
+        ] },
+        { id: 12, name: "Double Chance", values: [
+          { value: "Home/Draw", odd: "1.56" }, { value: "Home/Away", odd: "1.35" }, { value: "Draw/Away", odd: "1.36" },
+        ] },
+        { id: 5, name: "Goals Over/Under", values: [
+          { value: "Over 2.5", odd: "1.81" }, { value: "Under 2.5", odd: "1.97" },
+        ] },
+        { id: 8, name: "Both Teams Score", values: [
+          { value: "Yes", odd: "1.91" }, { value: "No", odd: "1.87" },
+        ] },
+      ],
+    },
+  ]);
+
+  // The exact case that failed on the deployed site: tapped on the board as
+  // 1x2 / "2", submitted against a fixture the real book had priced as af1.
+  const away = resolveSelection(upstream, "1x2", "2");
+  check("a board Away pick resolves to the book's Away", away?.price.outcome === "Away", String(away?.price.outcome));
+  check("and carries the book's price", away?.price.odds === 2.9, String(away?.price.odds));
+
+  check("board Home resolves", resolveSelection(upstream, "1x2", "1")?.price.outcome === "Home");
+  check("board Draw resolves", resolveSelection(upstream, "1x2", "X")?.price.outcome === "Draw");
+
+  check("double chance 1X resolves",
+    resolveSelection(upstream, "dc", "1X")?.price.outcome === "Home/Draw");
+  check("double chance X2 resolves",
+    resolveSelection(upstream, "dc", "X2")?.price.outcome === "Draw/Away");
+  check("over 2.5 resolves",
+    resolveSelection(upstream, "ou25", "O2.5")?.price.outcome === "Over 2.5");
+  check("under 2.5 resolves",
+    resolveSelection(upstream, "ou25", "U2.5")?.price.outcome === "Under 2.5");
+  check("GG resolves to Yes", resolveSelection(upstream, "btts", "GG")?.price.outcome === "Yes");
+  check("NG resolves to No", resolveSelection(upstream, "btts", "NG")?.price.outcome === "No");
+
+  // The other direction: a detail-page pick placed while only the derived
+  // board markets are live, which happens if upstream odds drop out.
+  const derived = deriveMarkets(3.16, 3.22, 2.9);
+  check("a book Away pick resolves back to the board",
+    resolveSelection(derived, "af1", "Away")?.price.outcome === "2");
+  check("a book Home/Draw resolves back to the board",
+    resolveSelection(derived, "af12", "Home/Draw")?.price.outcome === "1X");
+
+  // Exactness still wins where it can.
+  check("an exact match is used unchanged",
+    resolveSelection(derived, "1x2", "2")?.price.outcome === "2");
+
+  // And a genuinely absent market still refuses.
+  check("an unknown market refuses", resolveSelection(upstream, "af999", "Home") === null);
+  check("a nonsense outcome refuses", resolveSelection(upstream, "1x2", "banana") === null);
+  check("a market not on this fixture refuses",
+    resolveSelection(upstream, "cs", "2:1") === null);
 }
 
 console.log(failures === 0 ? "\nAll rule checks passed.\n" : `\n${failures} check(s) failed.\n`);
