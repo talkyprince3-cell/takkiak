@@ -10,6 +10,9 @@
 const BASE = "https://v3.football.api-sports.io";
 const TTL_MS = 60_000;
 
+/** Scores move; the live card is refreshed harder than the dated one. */
+const LIVE_TTL_MS = 20_000;
+
 /** Roughly forty competitions worth pricing for this market. */
 export const LEAGUE_WHITELIST = [
   39, 40, 41, 42, // England: Premier League, Championship, League One, League Two
@@ -104,11 +107,82 @@ export function isLiveStatus(status: string): boolean {
   return LIVE.has(status);
 }
 
+function toFixture(f: RawFixture): UpstreamFixture {
+  return {
+    id: String(f.fixture.id),
+    source: "api" as const,
+    league: f.league.name,
+    leagueId: f.league.id,
+    country: f.league.country,
+    sport: "football" as const,
+    homeTeam: f.teams.home.name,
+    awayTeam: f.teams.away.name,
+    homeCrest: f.teams.home.logo ?? null,
+    awayCrest: f.teams.away.logo ?? null,
+    kickoff: f.fixture.date,
+    statusShort: f.fixture.status.short,
+    minute: f.fixture.status.elapsed,
+    scoreHome: f.goals.home,
+    scoreAway: f.goals.away,
+    odds: null,
+  };
+}
+
 interface RawFixture {
   fixture: { id: number; date: string; status: { short: string; elapsed: number | null } };
   league: { id: number; name: string; country: string };
   teams: { home: { name: string; logo: string }; away: { name: string; logo: string } };
   goals: { home: number | null; away: number | null };
+}
+
+/**
+ * Everything in play right now, from any competition.
+ *
+ * The dated fetch is filtered to a whitelist of about forty competitions, which
+ * is right for the pre-match board but wrong for the live one: at most hours of
+ * the day the only football actually being played is outside that list, so the
+ * live section sat empty. In-play betting is locked platform-wide, so these are
+ * shown to follow rather than to bet, and no whitelist is applied.
+ *
+ * Youth and reserve competitions are dropped — they carry no odds and are not
+ * what a player opening the live tab is looking for.
+ */
+/**
+ * Competitions kept off the live card: youth, reserve and academy football.
+ * They carry no odds and are not what someone opening the live tab wants.
+ *
+ * Exported so it can be tested directly — the filter it feeds decides what a
+ * player sees, and a silently broken pattern is invisible until someone looks.
+ */
+export function isMinorCompetition(leagueName: string): boolean {
+  const n = (leagueName || "").toLowerCase();
+  return (
+    n.includes("youth") ||
+    n.includes("reserve") ||
+    n.includes("academy") ||
+    n.includes("primavera") ||
+    /\bu(1[5-9]|2[0-3])\b/.test(n)
+  );
+}
+
+export async function fetchLiveFixtures(): Promise<UpstreamFixture[]> {
+  const cached = cache.get("live");
+  if (cached && Date.now() - cached.at < LIVE_TTL_MS) return cached.value;
+
+  const raw = await call<RawFixture[]>("/fixtures?live=all");
+  if (!raw) return cached?.value ?? [];
+
+  const mapped: UpstreamFixture[] = [];
+
+  for (const f of raw) {
+    if (isMinorCompetition(f.league?.name ?? "")) continue;
+    if (isFinished(f.fixture.status.short)) continue;
+    mapped.push(toFixture(f));
+    if (mapped.length >= 80) break;
+  }
+
+  cache.set("live", { at: Date.now(), value: mapped });
+  return mapped;
 }
 
 /** Upstream fixtures for a date (YYYY-MM-DD), whitelisted and cached. */
@@ -126,24 +200,7 @@ export async function fetchFixtures(date: string): Promise<UpstreamFixture[]> {
   const mapped: UpstreamFixture[] = raw
     .filter((f) => allowed.has(f.league.id))
     .filter((f) => !isFinished(f.fixture.status.short))
-    .map((f) => ({
-      id: String(f.fixture.id),
-      source: "api" as const,
-      league: f.league.name,
-      leagueId: f.league.id,
-      country: f.league.country,
-      sport: "football" as const,
-      homeTeam: f.teams.home.name,
-      awayTeam: f.teams.away.name,
-      homeCrest: f.teams.home.logo ?? null,
-      awayCrest: f.teams.away.logo ?? null,
-      kickoff: f.fixture.date,
-      statusShort: f.fixture.status.short,
-      minute: f.fixture.status.elapsed,
-      scoreHome: f.goals.home,
-      scoreAway: f.goals.away,
-      odds: null,
-    }));
+    .map(toFixture);
 
   cache.set(date, { at: Date.now(), value: mapped });
   return mapped;

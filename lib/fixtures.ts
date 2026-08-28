@@ -1,6 +1,7 @@
 import { db } from "./supabase";
 import {
   fetchFixtures,
+  fetchLiveFixtures,
   fetchOdds,
   fetchFixtureOdds,
   syntheticOdds,
@@ -116,21 +117,31 @@ export async function getFeed(): Promise<FeedMatch[]> {
 
 async function loadUpstream(): Promise<FeedMatch[]> {
   const dates = [today(), tomorrow()];
-  const [fixturesByDate, oddsByDate] = await Promise.all([
+  const [fixturesByDate, oddsByDate, liveFixtures] = await Promise.all([
     Promise.all(dates.map((d) => fetchFixtures(d))),
     Promise.all(dates.map((d) => fetchOdds(d))),
+    // Fetched separately: the dated card is whitelisted, and at most hours the
+    // football actually being played sits outside that list.
+    fetchLiveFixtures(),
   ]);
 
   const out: FeedMatch[] = [];
+  const seen = new Set<string>();
 
-  for (let i = 0; i < dates.length; i++) {
-    const odds = oddsByDate[i];
-    for (const f of fixturesByDate[i]) {
+  // Live first, so a match appearing in both keeps its in-play state.
+  const sources = [liveFixtures, ...fixturesByDate];
+  const oddsFor = [new Map<string, { home: number; draw: number; away: number }>(), ...oddsByDate];
+
+  for (let i = 0; i < sources.length; i++) {
+    const odds = oddsFor[i];
+    for (const f of sources[i]) {
       if (isFinished(f.statusShort)) continue;
+      if (seen.has(f.id)) continue;
+      seen.add(f.id);
 
       // Any market upstream did not price is derived locally from 1X2, so the
       // market selector always has something to show.
-      const priced = odds.get(f.id) ?? syntheticOdds(f.id);
+      const priced = odds.get(f.id) ?? oddsByDate[0].get(f.id) ?? syntheticOdds(f.id);
       const live = isLiveStatus(f.statusShort);
 
       out.push({

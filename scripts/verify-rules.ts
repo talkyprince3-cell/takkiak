@@ -7,6 +7,8 @@ import { deriveMarkets, driftOdds } from "../lib/odds";
 import { checkWithdrawalGate } from "../lib/withdrawals";
 import { buildMarkets } from "../lib/markets";
 import { resolveSelection } from "../lib/resolve";
+import { isMinorCompetition } from "../lib/api-football";
+import { normalisePhone, maskPhoneTail } from "../lib/countries";
 import { cashoutOffer, CASHOUT_MARGIN, type CashoutLeg } from "../lib/cashout";
 import { correctScoreMarket, goalCountMarkets, ratesFromOdds } from "../lib/scoreline";
 import { standing, maskPhone, TIERS } from "../lib/tiers";
@@ -457,6 +459,36 @@ console.log(CASHOUT_HEADING);
     cashoutOffer(1, 400, [leg({ currentOdds: 50 }), leg({ currentOdds: 50 })]).reason === "too-small");
   check("every refusal offers zero",
     cashoutOffer(100, 400, [leg({ state: "lost" })]).amount === 0);
+}
+
+console.log("");
+console.log("Live card filtering and phone handling");
+{
+  check("a youth competition is kept off the live card", isMinorCompetition("Youth Championship"));
+  check("a U21 competition is kept off", isMinorCompetition("Premier League U21"));
+  check("a U19 competition is kept off", isMinorCompetition("Central Youth League U19"));
+  check("a reserve competition is kept off", isMinorCompetition("Reserve League"));
+  check("an academy competition is kept off", isMinorCompetition("Academy League"));
+
+  check("a senior second tier is kept", !isMinorCompetition("K League 2"));
+  check("a women's league is kept", !isMinorCompetition("WK-League"));
+  check("a top flight is kept", !isMinorCompetition("Bundesliga"));
+  check("a state league is kept", !isMinorCompetition("South Australia State League 1"));
+  // The word boundary matters: "u21" standing alone is a youth grade, the same
+  // letters inside another word are not.
+  check("a standalone U23 is kept off", isMinorCompetition("U23 Development League"));
+  check("digits after an unrelated word are kept", !isMinorCompetition("Club 23 Premier"));
+  check("u inside a word does not trip it", !isMinorCompetition("Sudamericana 21"));
+
+  // These guard against escape sequences being mangled on the way into source:
+  // a broken pattern here silently mis-filters or breaks sign-up.
+  check("a local number normalises", normalisePhone("0531234086", "GH") === "233531234086",
+    String(normalisePhone("0531234086", "GH")));
+  check("an international number normalises",
+    normalisePhone("+233531234086", "GH") === "233531234086");
+  check("a short number is rejected", normalisePhone("12345", "GH") === null);
+  check("a phone masks to its tail", maskPhoneTail("233531234086") === "53****086",
+    maskPhoneTail("233531234086"));
 }
 
 console.log(failures === 0 ? "\nAll rule checks passed.\n" : `\n${failures} check(s) failed.\n`);
