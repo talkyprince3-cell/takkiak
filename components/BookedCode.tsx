@@ -69,15 +69,15 @@ export function BookedCode({
   };
 
   return (
-    <div className="overflow-y-auto px-6 pb-6">
-      <h2 className="text-center text-[15px] font-bold text-[var(--text-bright)]">Booking Code</h2>
+    <div className="border-t border-[var(--line)] px-5 pb-5 pt-4">
+      <h2 className="text-center text-[14px] font-bold text-[var(--text-bright)]">Booking Code</h2>
 
       <button
         onClick={() => copy(code, "code")}
         className="mx-auto mt-1 flex items-center gap-2"
         aria-label="Copy booking code"
       >
-        <span className="text-[34px] font-black tracking-[0.12em] text-[var(--text-bright)]">
+        <span className="text-[30px] font-black tracking-[0.12em] text-[var(--text-bright)]">
           {code}
         </span>
         {copied === "code" ? (
@@ -102,15 +102,15 @@ export function BookedCode({
       {/* Ticket preview */}
       <button
         onClick={() => setZoom(true)}
-        className="relative mx-auto mt-4 block w-[112px] overflow-hidden rounded ring-1 ring-[var(--line)]"
+        className="relative mx-auto mt-3 block w-[92px] overflow-hidden rounded ring-1 ring-[var(--line)]"
         aria-label="Enlarge ticket"
       >
         <Image
           src={imageUrl}
           alt={`Ticket for booking code ${code}`}
-          width={112}
-          height={150}
-          className="h-[150px] w-[112px] object-cover"
+          width={92}
+          height={122}
+          className="h-[122px] w-[92px] object-cover"
           unoptimized
         />
         <span className="absolute inset-0 flex items-center justify-center bg-black/25">
@@ -121,8 +121,8 @@ export function BookedCode({
       </button>
 
       {/* Personal page listing */}
-      <div className="mt-5 flex items-center justify-between">
-        <span className="text-[15px] text-[var(--text-bright)]">Share Code on Personal Page</span>
+      <div className="mt-4 flex items-center justify-between">
+        <span className="text-[14px] text-[var(--text-bright)]">Share Code on Personal Page</span>
         <button
           role="switch"
           aria-checked={shared}
@@ -137,10 +137,10 @@ export function BookedCode({
         </button>
       </div>
 
-      <hr className="mt-5 border-[var(--line)]" />
+      <hr className="mt-4 border-[var(--line)]" />
 
       {/* Share row */}
-      <div className="mt-5 grid grid-cols-5 gap-1">
+      <div className="mt-4 grid grid-cols-5 gap-1">
         <ShareAction
           label="X / Twitter"
           href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`}
@@ -167,9 +167,9 @@ export function BookedCode({
 
       <button
         onClick={onDone}
-        className="mt-6 w-full rounded bg-[var(--accent)] py-3 text-[14px] font-black text-[var(--accent-ink)]"
+        className="mt-4 w-full py-2 text-[13px] font-semibold text-[var(--text-muted)]"
       >
-        Done
+        Back to slip
       </button>
 
       {zoom && (

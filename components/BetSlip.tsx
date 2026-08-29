@@ -200,16 +200,6 @@ export function BetSlip() {
               setOpen(false);
             }}
           />
-        ) : booked ? (
-          <BookedCode
-            code={booked.code}
-            expiresAt={booked.expiresAt}
-            onDone={() => {
-              setBooked(null);
-              clear();
-              setOpen(false);
-            }}
-          />
         ) : legs.length === 0 ? (
           <p className="p-12 text-center text-[13px] text-[var(--text-muted)]">
             Tap any odds to add a selection.
@@ -309,7 +299,10 @@ export function BetSlip() {
             )}
 
             {/* Selections */}
-            <ul className="min-h-0 flex-1 divide-y divide-[var(--line)] overflow-y-auto">
+            <ul
+              className="min-h-0 divide-y divide-[var(--line)] overflow-y-auto"
+              style={booked ? { maxHeight: "22vh" } : { flex: 1 }}
+            >
               {legs.map((l) => (
                 <li key={l.matchId} className="px-4 py-3">
                   <div className="flex items-start gap-2">
@@ -337,6 +330,14 @@ export function BetSlip() {
               ))}
             </ul>
 
+            {booked ? (
+              <BookedCode
+                code={booked.code}
+                expiresAt={booked.expiresAt}
+                onDone={() => setBooked(null)}
+              />
+            ) : (
+              <>
             {/* Bonus progress, on multiples only */}
             {mode === "multiple" && (
               <div className="mx-4 mt-3 overflow-hidden rounded">
@@ -434,6 +435,8 @@ export function BetSlip() {
                 </Link>
               )}
             </div>
+              </>
+            )}
           </>
         )}
       </div>
