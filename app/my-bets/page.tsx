@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Page } from "@/components/Shell";
 import { useSession } from "@/lib/store";
 import { formatMoney } from "@/lib/countries";
+import { WinCelebration, hasCelebrated, markCelebrated } from "@/components/WinCelebration";
 
 interface Leg {
   match_id: string;
@@ -48,6 +49,8 @@ export default function MyBetsPage() {
 
   const [tickets, setTickets] = useState<Ticket[] | null>(null);
   const [filter, setFilter] = useState("all");
+  // The first winning ticket the player has not been shown yet.
+  const [celebrating, setCelebrating] = useState<Ticket | null>(null);
 
   useEffect(() => {
     if (hydrated && !player) router.replace("/login");
@@ -58,7 +61,15 @@ export default function MyBetsPage() {
     // Opening this screen settles this player's own tickets first.
     fetch(`/api/bets/mine?userId=${player.id}`)
       .then((r) => (r.ok ? r.json() : { bets: [] }))
-      .then((j) => setTickets(j.bets ?? []))
+      .then((j) => {
+        const bets: Ticket[] = j.bets ?? [];
+        setTickets(bets);
+
+        // Announce a win once. Opening this screen is the moment the player
+        // finds out, and settlement has already run by the time it responds.
+        const fresh = bets.find((b) => b.status === "won" && !hasCelebrated(b.code));
+        if (fresh && markCelebrated(fresh.code)) setCelebrating(fresh);
+      })
       .catch(() => setTickets([]));
   }, [player]);
 
@@ -102,6 +113,15 @@ export default function MyBetsPage() {
           shown.map((t) => <TicketCard key={t.id} ticket={t} />)
         )}
       </div>
+
+      {celebrating && (
+        <WinCelebration
+          code={celebrating.code}
+          amount={Number(celebrating.payout ?? celebrating.potential_win)}
+          currency={celebrating.currency}
+          onClose={() => setCelebrating(null)}
+        />
+      )}
     </Page>
   );
 }

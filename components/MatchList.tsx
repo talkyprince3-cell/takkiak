@@ -17,8 +17,9 @@ const POLL_MS = 30_000;
 
 const MARKET_TABS = [
   { key: "1x2", label: "1X2", cols: ["1", "X", "2"] },
-  { key: "dc", label: "Double chance", cols: ["1X", "12", "X2"] },
-  { key: "ou25", label: "O/U 2.5", cols: ["O2.5", "U2.5"] },
+  { key: "ou25", label: "O/U", cols: ["O2.5", "U2.5"] },
+  { key: "dc", label: "Double Chance", cols: ["1X", "12", "X2"] },
+  { key: "ou15", label: "O/U 1.5", cols: ["O1.5", "U1.5"] },
   { key: "btts", label: "GG/NG", cols: ["GG", "NG"] },
 ];
 
@@ -196,22 +197,37 @@ function MatchRow({
   };
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2.5 md:gap-4 md:px-4 md:py-3">
-      <div className="w-12 shrink-0 text-center md:w-16">
-        {match.isLive ? (
-          <div className="flex flex-col items-center">
-            <span className="live-dot h-1.5 w-1.5 rounded-full bg-[var(--live)]" />
-            <span className="mt-0.5 text-[10px] font-bold text-[var(--live)]">{match.minuteLabel}</span>
-          </div>
-        ) : (
-          <KickoffTime iso={match.kickoff} />
-        )}
-      </div>
+    <div className="px-3 py-2.5 md:px-4 md:py-3">
+      {/* A running match leads with its clock and competition. */}
+      {match.isLive && (
+        <div className="mb-1.5 flex items-center gap-1.5">
+          <span className="flex h-[18px] items-center gap-1 rounded-full bg-[var(--live)] px-1.5">
+            <Flame size={10} strokeWidth={2.6} className="text-white" />
+            <span className="text-[10px] font-black text-white">{match.minuteLabel}</span>
+          </span>
+          <span className="rounded-sm px-1 text-[9px] font-black text-[var(--live)] ring-1 ring-[var(--live)]">
+            LIVE
+          </span>
+          <Link
+            href={`/search?q=${encodeURIComponent(match.league)}`}
+            className="truncate text-[11px] text-[var(--text-muted)] underline decoration-[var(--text-faint)]"
+          >
+            {match.country} - {match.league}
+          </Link>
+        </div>
+      )}
 
-      <Link href={`/match/${match.id}`} className="min-w-0 flex-1">
-        <TeamLine name={match.homeTeam} crest={match.homeCrest} score={match.scoreHome} />
-        <TeamLine name={match.awayTeam} crest={match.awayCrest} score={match.scoreAway} />
-        <div className="mt-0.5 flex items-center gap-2">
+      <div className="flex items-center gap-2 md:gap-4">
+        {!match.isLive && (
+          <div className="w-12 shrink-0 text-center md:w-16">
+            <KickoffTime iso={match.kickoff} />
+          </div>
+        )}
+
+        <Link href={`/match/${match.id}`} className="min-w-0 flex-1">
+          <TeamLine name={match.homeTeam} crest={match.homeCrest} score={match.scoreHome} />
+          <TeamLine name={match.awayTeam} crest={match.awayCrest} score={match.scoreAway} />
+          <div className="mt-0.5 flex items-center gap-2">
           {match.bestOdds && (
             <span className="inline-flex items-center gap-0.5 rounded-sm bg-[var(--accent)] px-1 py-px text-[9px] font-black text-[var(--accent-ink)]">
               <Flame size={9} strokeWidth={2.6} />
@@ -224,14 +240,14 @@ function MatchRow({
           {count != null && !match.isLive && (
             <span className="text-[10px] text-[var(--text-faint)]">{count.toLocaleString()} betting</span>
           )}
-          <span className="ml-auto inline-flex items-center text-[10px] text-[var(--text-faint)]">
-            +{match.markets.length} markets
-            <ChevronRight size={11} strokeWidth={2} />
-          </span>
-        </div>
-      </Link>
+            <span className="ml-auto inline-flex items-center text-[10px] text-[var(--text-faint)]">
+              +{match.markets.length} markets
+              <ChevronRight size={11} strokeWidth={2} />
+            </span>
+          </div>
+        </Link>
 
-      <div className="flex shrink-0 gap-1 md:gap-1.5">
+        <div className="flex shrink-0 gap-1 md:gap-1.5">
         {cols.map((outcome) => {
           const price = market?.prices.find((p) => p.outcome === outcome);
           const isOn = selected?.market === marketKey && selected?.outcome === outcome;
@@ -258,8 +274,9 @@ function MatchRow({
                 price!.odds.toFixed(2)
               )}
             </button>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
