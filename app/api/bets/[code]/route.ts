@@ -51,7 +51,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ code: string }>
 
   // Price the open legs so the ticket can be valued.
   const cashLegs: CashoutLeg[] = [];
-  const live: Record<string, { currentOdds: number | null; isLive: boolean }> = {};
+  const live: Record<
+    string,
+    {
+      currentOdds: number | null;
+      isLive: boolean;
+      liveHome: number | null;
+      liveAway: number | null;
+      minuteLabel: string | null;
+    }
+  > = {};
 
   if (bet.status === "pending") {
     const matches = await Promise.all(
@@ -63,9 +72,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ code: string }>
       const match = byId.get(leg.match_id);
       const resolved = match ? resolveSelection(match.markets, leg.market, leg.outcome) : null;
 
+      // The running score, so a ticket on an in-play match shows what is
+      // happening rather than a pair of dashes. final_home is only written at
+      // settlement, so it is null for the whole time a player most wants to look.
       live[leg.id] = {
         currentOdds: resolved?.price.odds ?? null,
         isLive: Boolean(match?.isLive),
+        liveHome: match?.scoreHome ?? null,
+        liveAway: match?.scoreAway ?? null,
+        minuteLabel: match?.isLive ? (match.minuteLabel || null) : null,
       };
 
       cashLegs.push({

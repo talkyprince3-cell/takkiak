@@ -31,6 +31,9 @@ interface Leg {
   final_away: number | null;
   currentOdds?: number | null;
   isLive?: boolean;
+  liveHome?: number | null;
+  liveAway?: number | null;
+  minuteLabel?: string | null;
 }
 
 interface Bet {
@@ -106,6 +109,15 @@ export function TicketDetail({ code }: { code: string }) {
       alive = false;
     };
   }, [player, code, nonce]);
+
+  // While anything on the ticket is still running, keep the score and the
+  // cashout offer current. Both move on their own, and a stale number on
+  // either is worse than none.
+  useEffect(() => {
+    if (data?.bet.status !== "pending") return;
+    const timer = setInterval(reload, 30_000);
+    return () => clearInterval(timer);
+  }, [data?.bet.status, reload]);
 
   const cashout = async () => {
     if (!player || !data?.cashout.available) return;
@@ -377,6 +389,13 @@ function LegCard({ leg }: { leg: Leg }) {
           ? { label: "LIVE", colour: "var(--live)" }
           : { label: "NOT STARTED", colour: "var(--text-faint)" };
 
+  // A settled leg keeps the score it was judged on; an open one shows the
+  // score right now, which is the whole reason to open a ticket mid-match.
+  const settledScore = leg.final_home !== null && leg.final_away !== null;
+  const homeScore = settledScore ? leg.final_home : (leg.liveHome ?? null);
+  const awayScore = settledScore ? leg.final_away : (leg.liveAway ?? null);
+  const showingLive = !settledScore && leg.liveHome !== null && leg.liveHome !== undefined;
+
   const drift =
     leg.currentOdds && Math.abs(leg.currentOdds - Number(leg.odds)) > 0.005
       ? leg.currentOdds < Number(leg.odds)
@@ -413,6 +432,9 @@ function LegCard({ leg }: { leg: Leg }) {
               : "—"}
           </span>
           <span className="capitalize underline decoration-[var(--text-faint)]">{leg.sport}</span>
+          {leg.minuteLabel && (
+            <span className="font-bold text-[var(--live)]">{leg.minuteLabel}</span>
+          )}
           <span
             className="ml-auto rounded px-1.5 py-0.5 text-[9px] font-black"
             style={{ color: state.colour, boxShadow: `inset 0 0 0 1px ${state.colour}` }}
@@ -422,8 +444,8 @@ function LegCard({ leg }: { leg: Leg }) {
         </div>
 
         <div className="mt-2 rounded bg-[var(--surface)] px-3 py-2">
-          <Team name={leg.home_team} score={leg.final_home} />
-          <Team name={leg.away_team} score={leg.final_away} />
+          <Team name={leg.home_team} score={homeScore} live={showingLive} />
+          <Team name={leg.away_team} score={awayScore} live={showingLive} />
         </div>
 
         <dl className="mt-2 space-y-1 text-[12px]">
@@ -461,11 +483,16 @@ function LegCard({ leg }: { leg: Leg }) {
   );
 }
 
-function Team({ name, score }: { name: string; score: number | null }) {
+function Team({ name, score, live }: { name: string; score: number | null; live?: boolean }) {
   return (
     <div className="flex items-center justify-between py-0.5">
       <span className="truncate text-[13px] text-[var(--text)]">{name}</span>
-      <span className="pl-3 text-[13px] font-bold text-[var(--text-muted)]">{score ?? "-"}</span>
+      <span
+        className="pl-3 text-[13px] font-bold tabular-nums"
+        style={{ color: live ? "var(--accent)" : "var(--text-muted)" }}
+      >
+        {score ?? "-"}
+      </span>
     </div>
   );
 }
