@@ -1,18 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useAdminData, adminAction, Panel, Table, Badge, Button } from "@/components/admin/ui";
 import { useDialog, validators } from "@/components/admin/Dialog";
-
-interface Goal {
-  minute: number;
-  team: "home" | "away";
-}
+import { GoalTimeline, type Goal } from "@/components/admin/GoalTimeline";
+import { CrestPicker } from "@/components/admin/CrestPicker";
 
 interface CustomMatch {
   id: string;
   home_team: string;
   away_team: string;
+  home_crest: string | null;
+  away_crest: string | null;
   league: string;
   kickoff: string;
   odds_home: number;
@@ -36,6 +36,9 @@ const BLANK = {
   odds_draw: 3.2,
   odds_away: 3.5,
   best_odds: false,
+  goal_timeline: [] as Goal[],
+  home_crest: null as string | null,
+  away_crest: null as string | null,
 };
 
 export default function CustomMatchesPage() {
@@ -45,6 +48,11 @@ export default function CustomMatchesPage() {
   const [form, setForm] = useState(BLANK);
   const [note, setNote] = useState<string | null>(null);
   const { ask, confirm, dialog } = useDialog();
+  // The match whose goal script is open, if any.
+  const [scripting, setScripting] = useState<CustomMatch | null>(null);
+  // The same editor, opened for the match being created.
+  const [scriptingNew, setScriptingNew] = useState(false);
+  const [crestsFor, setCrestsFor] = useState<CustomMatch | null>(null);
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,38 +71,6 @@ export default function CustomMatchesPage() {
     const res = await adminAction("/api/admin/custom-matches", "PATCH", { id, ...body });
     setNote(res.ok ? "Updated." : (res.error ?? "Failed"));
     if (res.ok) reload();
-  };
-
-  const editTimeline = async (m: CustomMatch) => {
-    const values = await ask({
-      title: "Goal timeline",
-      description:
-        `${m.home_team} v ${m.away_team}. The timeline drives the live score, and the clock decides ` +
-        "when the match is over — so this match settles itself with no further input.",
-      fields: [
-        {
-          name: "timeline",
-          label: "Goals",
-          placeholder: "23:home, 61:away, 88:home",
-          defaultValue: (m.goal_timeline ?? []).map((g) => `${g.minute}:${g.team}`).join(", "),
-          hint: "minute:team, comma separated. Leave empty for a goalless match.",
-          validate: validators.goalTimeline,
-        },
-      ],
-    });
-    if (!values) return;
-
-    const timeline: Goal[] = values.timeline
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((part) => {
-        const [minute, team] = part.split(":").map((x) => x.trim());
-        return { minute: Number(minute), team: team as "home" | "away" };
-      })
-      .sort((a, b) => a.minute - b.minute);
-
-    await patch(m.id, { goal_timeline: timeline });
   };
 
   const setResult = async (m: CustomMatch) => {
@@ -162,9 +138,29 @@ export default function CustomMatchesPage() {
               />
               Best odds
             </label>
+            <Button
+              type="button"
+              onClick={() => setScriptingNew(true)}
+              disabled={!form.home_team.trim() || !form.away_team.trim()}
+            >
+              Goals ({form.goal_timeline.length})
+            </Button>
             <Button tone="accent" type="submit">
               Create
             </Button>
+          </div>
+
+          <div className="grid gap-2 sm:col-span-4 sm:grid-cols-2">
+            <CrestPicker
+              label={`${form.home_team || "Home"} crest`}
+              value={form.home_crest}
+              onChange={(url) => setForm({ ...form, home_crest: url })}
+            />
+            <CrestPicker
+              label={`${form.away_team || "Away"} crest`}
+              value={form.away_crest}
+              onChange={(url) => setForm({ ...form, away_crest: url })}
+            />
           </div>
         </form>
       </Panel>
@@ -177,10 +173,16 @@ export default function CustomMatchesPage() {
             {(data?.matches ?? []).map((m) => (
               <tr key={m.id}>
                 <td className="px-3 py-2">
-                  <p className="font-semibold">
-                    {m.home_team} v {m.away_team}
-                  </p>
-                  <p className="text-[11px] text-[var(--text-faint)]">{m.league}</p>
+                  <div className="flex items-center gap-2">
+                    <RowCrest src={m.home_crest} />
+                    <RowCrest src={m.away_crest} />
+                    <div>
+                      <p className="font-semibold">
+                        {m.home_team} v {m.away_team}
+                      </p>
+                      <p className="text-[11px] text-[var(--text-faint)]">{m.league}</p>
+                    </div>
+                  </div>
                 </td>
                 <td className="px-3 py-2 text-[11px]">{new Date(m.kickoff).toLocaleString()}</td>
                 <td className="px-3 py-2 font-mono text-[11px]">
@@ -209,7 +211,10 @@ export default function CustomMatchesPage() {
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex flex-wrap gap-1">
-                    <Button onClick={() => editTimeline(m)}>Timeline</Button>
+                    <Button onClick={() => setScripting(m)}>
+                      Goals ({(m.goal_timeline ?? []).length})
+                    </Button>
+                    <Button onClick={() => setCrestsFor(m)}>Crests</Button>
                     <Button onClick={() => patch(m.id, { is_live: !m.is_live })}>
                       {m.is_live ? "End live" : "Go live"}
                     </Button>
@@ -228,7 +233,112 @@ export default function CustomMatchesPage() {
           </Table>
         )}
       </Panel>
+      {crestsFor && (
+        <CrestDialog
+          match={crestsFor}
+          onClose={() => setCrestsFor(null)}
+          onSave={async (home, away) => {
+            const id = crestsFor.id;
+            setCrestsFor(null);
+            await patch(id, { home_crest: home, away_crest: away });
+          }}
+        />
+      )}
+
+      {scriptingNew && (
+        <GoalTimeline
+          homeTeam={form.home_team || "Home"}
+          awayTeam={form.away_team || "Away"}
+          initial={form.goal_timeline}
+          onClose={() => setScriptingNew(false)}
+          onSave={(goals) => {
+            setForm({ ...form, goal_timeline: goals });
+            setScriptingNew(false);
+          }}
+        />
+      )}
+
+      {scripting && (
+        <GoalTimeline
+          homeTeam={scripting.home_team}
+          awayTeam={scripting.away_team}
+          initial={scripting.goal_timeline ?? []}
+          onClose={() => setScripting(null)}
+          onSave={async (goals) => {
+            const id = scripting.id;
+            setScripting(null);
+            await patch(id, { goal_timeline: goals });
+          }}
+        />
+      )}
+
       {dialog}
+    </div>
+  );
+}
+
+function RowCrest({ src }: { src: string | null }) {
+  return (
+    <Image
+      src={src || "/crest-fallback.svg"}
+      alt=""
+      width={20}
+      height={20}
+      className="h-5 w-5 shrink-0 object-contain"
+      unoptimized
+    />
+  );
+}
+
+/** Both crests for one match, edited together. */
+function CrestDialog({
+  match,
+  onClose,
+  onSave,
+}: {
+  match: CustomMatch;
+  onClose: () => void;
+  onSave: (home: string | null, away: string | null) => void;
+}) {
+  const [home, setHome] = useState<string | null>(match.home_crest);
+  const [away, setAway] = useState<string | null>(match.away_crest);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <button className="absolute inset-0 bg-black/70" onClick={onClose} aria-label="Cancel" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Team crests"
+        className="relative w-full max-w-md overflow-hidden rounded-[6px] bg-[var(--bg-elevated)] shadow-2xl ring-1 ring-[var(--line)]"
+      >
+        <header className="border-b border-[var(--line)] px-4 py-3">
+          <h2 className="text-[14px] font-bold">Team crests</h2>
+          <p className="text-[11px] text-[var(--text-muted)]">
+            {match.home_team} v {match.away_team}
+          </p>
+        </header>
+
+        <div className="space-y-2 p-4">
+          <CrestPicker label={`${match.home_team} crest`} value={home} onChange={setHome} />
+          <CrestPicker label={`${match.away_team} crest`} value={away} onChange={setAway} />
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-[var(--line)] p-3">
+          <button
+            onClick={onClose}
+            className="rounded-[3px] px-4 py-2 text-[12px] font-bold text-[var(--text-muted)] ring-1 ring-[var(--line)]"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onSave(home, away)}
+            className="rounded-[3px] bg-[var(--accent)] px-4 py-2 text-[12px] font-black text-[var(--accent-ink)]"
+          >
+            Save crests
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
