@@ -42,6 +42,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ code: string }>
     return NextResponse.json({ error: "That is not your ticket" }, { status: 403 });
   }
 
+  const { data: owner } = await supabase
+    .from("users")
+    .select("name")
+    .eq("id", bet.user_id)
+    .maybeSingle();
+
   const { data: legs } = await supabase
     .from("bet_selections")
     .select("id, match_id, home_team, away_team, league, sport, kickoff, market, outcome, odds, result, final_home, final_away")
@@ -113,6 +119,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ code: string }>
       mode: bet.mode ?? "multiple",
       cashout_amount: bet.cashout_amount ?? null,
     },
+    owner: { name: owner?.name ?? null },
     selections: selections.map((l) => ({ ...l, ...(live[l.id] ?? {}) })),
     cashout: offer,
   });

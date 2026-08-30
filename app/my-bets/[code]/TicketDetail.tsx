@@ -63,6 +63,7 @@ interface Bet {
 
 interface Payload {
   bet: Bet;
+  owner: { name: string | null };
   selections: Leg[];
   cashout: { available: boolean; amount: number; potential: number; reason?: string };
 }
@@ -346,8 +347,8 @@ export function TicketDetail({ code }: { code: string }) {
               <span className="block text-[15px] font-black leading-tight text-[var(--text-bright)]">
                 Congratulations!
               </span>
-              <span className="block truncate text-[13px] text-[var(--text-muted)]">
-                {player.name}
+              <span className="block truncate text-[13px] font-medium text-[var(--accent)]">
+                {data.owner?.name ?? player.name}
               </span>
             </span>
             <button
