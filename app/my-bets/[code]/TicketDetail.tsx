@@ -3,7 +3,18 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Copy, Check, ChevronsDown, IdCard } from "lucide-react";
+import {
+  ArrowLeft,
+  Copy,
+  Check,
+  ChevronsDown,
+  IdCard,
+  Trophy,
+  CircleCheck,
+  CircleX,
+  Share2,
+  LineChart,
+} from "lucide-react";
 import { useSlip, useSession, type SlipLeg } from "@/lib/store";
 import { formatMoney } from "@/lib/countries";
 
@@ -78,6 +89,7 @@ export function TicketDetail({ code }: { code: string }) {
   const [expanded, setExpanded] = useState(true);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [shared, setShared] = useState(false);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
@@ -142,6 +154,30 @@ export function TicketDetail({ code }: { code: string }) {
       setNote("Network problem. Try again.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  /** Share the win, falling back to the clipboard where there is no share sheet. */
+  const showOff = async () => {
+    if (!data) return;
+    const amount = formatMoney(Number(data.bet.payout ?? 0), data.bet.currency);
+    const text = `I just won ${amount} on Betlixx. Ticket ${data.bet.code}.`;
+    const url = typeof window !== "undefined" ? window.location.origin : "";
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Betlixx win", text, url });
+        return;
+      } catch {
+        /* dismissed */
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(`${text} ${url}`);
+      setShared(true);
+      setTimeout(() => setShared(false), 1800);
+    } catch {
+      /* clipboard unavailable */
     }
   };
 
@@ -231,6 +267,7 @@ export function TicketDetail({ code }: { code: string }) {
   const { bet, selections, cashout: offer } = data;
   const status = STATUS[bet.status] ?? STATUS.pending;
   const settled = bet.status !== "pending";
+  const won = bet.status === "won" || bet.status === "cashed_out";
 
   return (
     <div className="min-h-screen bg-[var(--bg)] pb-24">
@@ -266,26 +303,62 @@ export function TicketDetail({ code }: { code: string }) {
           </button>
         </div>
 
-        <p
-          className="mx-auto mt-4 max-w-2xl text-center text-[26px] font-black tracking-wide"
-          style={{ color: status.colour }}
-        >
-          {status.label}
-        </p>
+        <div className="mx-auto mt-3 flex max-w-2xl items-center justify-between">
+          <span className="text-[17px] font-bold capitalize text-[var(--text-bright)]">
+            {bet.mode}
+          </span>
+          <span className="flex items-center gap-1.5" style={{ color: status.colour }}>
+            {won && <Trophy size={17} strokeWidth={2} />}
+            <span className="text-[17px] font-black">{status.label}</span>
+          </span>
+        </div>
 
-        <dl className="mx-auto mt-3 max-w-2xl space-y-1.5 text-[14px]">
+        {/* The return is the number a settled ticket is really about. */}
+        <div className="mx-auto mt-2 max-w-2xl">
+          <p className="text-[13px] text-[var(--text-muted)]">
+            {settled ? "Total Return" : "Potential Return"}
+          </p>
+          <p
+            className="text-[27px] font-black leading-tight"
+            style={{ color: won ? "var(--win)" : "var(--text-bright)" }}
+          >
+            {formatMoney(
+              settled ? Number(bet.payout ?? 0) : Number(bet.potential_win),
+              bet.currency,
+            )}
+          </p>
+        </div>
+
+        <dl className="mx-auto mt-3 max-w-2xl space-y-1.5 border-t border-[var(--line)] pt-3 text-[14px]">
           <Line label="Total Stake" value={Number(bet.stake).toFixed(2)} />
           <Line label="Total Odds" value={Number(bet.total_odds).toFixed(2)} />
-          <Line label="To Return" value={Number(bet.potential_win).toFixed(2)} />
-          <Line
-            label="Total Return"
-            value={settled ? Number(bet.payout ?? 0).toFixed(2) : "- -"}
-            accent={settled && Number(bet.payout ?? 0) > 0}
-          />
           {Number(bet.bonus) > 0 && (
-            <Line label="Bonus included" value={Number(bet.bonus).toFixed(2)} accent />
+            <Line label="Max. Bonus" value={Number(bet.bonus).toFixed(2)} accent />
           )}
+          {!settled && <Line label="To Return" value={Number(bet.potential_win).toFixed(2)} />}
         </dl>
+
+        {/* Congratulations, on a won ticket only. */}
+        {won && (
+          <div className="mx-auto mt-4 flex max-w-2xl items-center gap-3 rounded-[6px] bg-[var(--bg-elevated)] px-3 py-2.5">
+            <Confetti />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-black leading-tight text-[var(--text-bright)]">
+                Congratulations!
+              </span>
+              <span className="block truncate text-[13px] text-[var(--text-muted)]">
+                {player.name}
+              </span>
+            </span>
+            <button
+              onClick={showOff}
+              className="flex shrink-0 items-center gap-1.5 rounded-[4px] bg-[var(--accent)] px-4 py-2.5 text-[13px] font-black text-[var(--accent-ink)]"
+            >
+              {shared ? <Check size={14} strokeWidth={2.6} /> : <Share2 size={14} strokeWidth={2.2} />}
+              {shared ? "Copied" : "Show Off"}
+            </button>
+          </div>
+        )}
 
         <div className="mt-4 flex justify-center">
           <button
@@ -355,6 +428,60 @@ export function TicketDetail({ code }: { code: string }) {
   );
 }
 
+/**
+ * The result of a leg in words, for the markets a final score can settle
+ * unambiguously. Anything else returns null rather than a guess.
+ */
+function describeOutcome(leg: Leg): string | null {
+  if (leg.final_home === null || leg.final_away === null) return null;
+
+  const h = leg.final_home;
+  const a = leg.final_away;
+  const market = leg.market.toLowerCase();
+
+  if (market === "1x2" || market === "af1") {
+    return h > a ? "Home" : h < a ? "Away" : "Draw";
+  }
+  if (market === "af8" || market === "btts") {
+    return h > 0 && a > 0 ? "Yes" : "No";
+  }
+  if (market === "af5" || market === "af50" || market.startsWith("ou")) {
+    return `${h + a} goals`;
+  }
+  if (market === "af21" || market === "oe") {
+    return (h + a) % 2 === 1 ? "Odd" : "Even";
+  }
+  if (market === "af10" || market === "cs" || market === "eg") {
+    return `${h}:${a}`;
+  }
+  return null;
+}
+
+/** The burst beside the congratulations line. */
+function Confetti() {
+  return (
+    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true" className="shrink-0">
+      <circle cx="17" cy="20" r="10" fill="#FFD63A" />
+      <circle cx="17" cy="20" r="10" fill="none" stroke="#E9A21F" strokeWidth="1.5" />
+      <path
+        d="M14.6 16.4h5c1.9 0 3 .9 3 2.4 0 1-.6 1.8-1.5 2.1 1.2.3 1.9 1.1 1.9 2.3 0 1.7-1.3 2.7-3.4 2.7h-5v-9.5z"
+        fill="#8A5A08"
+      />
+      <g stroke="#9FF611" strokeWidth="2" strokeLinecap="round">
+        <path d="M30 9l4-4M31 17l5-1" />
+      </g>
+      <g stroke="#FF5470" strokeWidth="2" strokeLinecap="round">
+        <path d="M29 27l5 4M8 8l-4-3" />
+      </g>
+      <g stroke="#3685E2" strokeWidth="2" strokeLinecap="round">
+        <path d="M6 30l-3 4M35 24l3 3" />
+      </g>
+      <circle cx="33" cy="12" r="1.6" fill="#FFFFFF" />
+      <circle cx="5" cy="18" r="1.4" fill="#9FF611" />
+    </svg>
+  );
+}
+
 function Header({ onBack }: { onBack: () => void }) {
   return (
     <header className="sticky top-0 z-40 bg-[var(--surface)]">
@@ -396,6 +523,11 @@ function LegCard({ leg }: { leg: Leg }) {
   const awayScore = settledScore ? leg.final_away : (leg.liveAway ?? null);
   const showingLive = !settledScore && leg.liveHome !== null && leg.liveHome !== undefined;
 
+  // What actually happened, where the final score says so plainly. Left blank
+  // for markets whose result cannot be read off the scoreline alone — an
+  // invented "Outcome" would be worse than none.
+  const outcome = describeOutcome(leg);
+
   const drift =
     leg.currentOdds && Math.abs(leg.currentOdds - Number(leg.odds)) > 0.005
       ? leg.currentOdds < Number(leg.odds)
@@ -405,17 +537,18 @@ function LegCard({ leg }: { leg: Leg }) {
 
   return (
     <article className="flex overflow-hidden rounded-[6px] bg-[var(--bg-elevated)]">
-      {/* Status rail */}
+      {/* Status mark: a settled leg says at a glance whether it landed. */}
       <div
-        className="flex w-7 shrink-0 items-center justify-center"
+        className="flex w-9 shrink-0 items-start justify-center pt-3"
         style={{ background: "var(--surface)", color: state.colour }}
       >
-        <span
-          className="whitespace-nowrap text-[9px] font-bold tracking-wider"
-          style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
-        >
-          {state.label}
-        </span>
+        {leg.result === "won" ? (
+          <CircleCheck size={19} strokeWidth={2.2} />
+        ) : leg.result === "lost" ? (
+          <CircleX size={19} strokeWidth={2.2} />
+        ) : (
+          <span className="h-2 w-2 rounded-full" style={{ background: state.colour }} />
+        )}
       </div>
 
       <div className="min-w-0 flex-1 p-3">
@@ -448,18 +581,38 @@ function LegCard({ leg }: { leg: Leg }) {
           <Team name={leg.away_team} score={awayScore} live={showingLive} />
         </div>
 
-        <dl className="mt-2 space-y-1 text-[12px]">
+        {/* What the match finished, and what that made the outcome. */}
+        {settledScore && (
+          <p className="mt-1.5 text-[12px] text-[var(--text-muted)]">
+            FT Score:{" "}
+            <span className="font-bold text-[var(--text)]">
+              {leg.final_home}:{leg.final_away}
+            </span>
+          </p>
+        )}
+
+        <dl className="relative mt-2 space-y-1 rounded bg-[var(--surface)] px-3 py-2 text-[12px]">
+          {leg.result === "won" && (
+            <Trophy
+              size={38}
+              strokeWidth={1.4}
+              className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[var(--win)] opacity-10"
+            />
+          )}
           <div className="flex justify-between">
             <dt className="text-[var(--text-muted)]">Market</dt>
             <dd className="font-medium">{leg.market.toUpperCase()}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-[var(--text-muted)]">Pick</dt>
-            <dd className="font-medium">
+            <dd className="flex items-center gap-1 font-medium">
               {leg.outcome} @ {Number(leg.odds).toFixed(2)}
+              {leg.result === "won" && (
+                <Check size={12} strokeWidth={3} className="text-[var(--win)]" />
+              )}
               {drift && (
                 <span
-                  className="ml-1.5 text-[10px]"
+                  className="ml-1 text-[10px]"
                   style={{ color: drift === "shortened" ? "var(--win)" : "var(--lose)" }}
                 >
                   now {leg.currentOdds!.toFixed(2)}
@@ -467,9 +620,25 @@ function LegCard({ leg }: { leg: Leg }) {
               )}
             </dd>
           </div>
+
+          {outcome && (
+            <div className="flex justify-between">
+              <dt className="text-[var(--text-muted)]">Outcome</dt>
+              <dd className="font-medium" style={{ color: state.colour }}>
+                {outcome}
+              </dd>
+            </div>
+          )}
         </dl>
 
-        <div className="mt-2 flex justify-end">
+        <div className="mt-2 flex items-center justify-between">
+          <Link
+            href={`/match/${leg.match_id}`}
+            className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--accent)]"
+          >
+            <LineChart size={13} strokeWidth={2} />
+            Match Tracker
+          </Link>
           <Link
             href={`/match/${leg.match_id}`}
             className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium text-[var(--text)] ring-1 ring-[var(--line)]"
