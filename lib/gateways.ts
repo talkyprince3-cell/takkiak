@@ -13,6 +13,22 @@ import type { Gateway } from "./countries";
 
 export type ChargeStatus = "pending" | "confirmed" | "failed";
 
+/**
+ * What the rail says became of a charge.
+ *
+ * The settled amount matters as much as the status. A player can start a
+ * GH₵500 deposit and approve GH₵5 on the handset, and the rail will call that
+ * successful — it is, it just is not the deposit that was asked for. Every
+ * adapter that can report what actually arrived does, and the credit path uses
+ * that figure rather than the one the player typed in.
+ */
+export interface ChargeOutcome {
+  status: ChargeStatus;
+  /** What the rail says actually settled. Absent when the rail does not say. */
+  paidAmount?: number;
+  paidCurrency?: string;
+}
+
 export interface StartResult {
   ok: boolean;
   /** Hosted checkout URL, when the rail redirects. */
@@ -28,7 +44,7 @@ export interface GatewayAdapter {
   id: Gateway;
   label: string;
   start(opts: StartOpts): Promise<StartResult>;
-  status(reference: string): Promise<ChargeStatus>;
+  status(reference: string): Promise<ChargeOutcome>;
 }
 
 export interface StartOpts {
@@ -68,6 +84,42 @@ async function flwFetch(path: string, init?: RequestInit) {
   }
 }
 
+/**
+ * Flutterwave wants the network named on a Ghana mobile-money charge, and the
+ * number's prefix is the only thing we have to name it from.
+ *
+ * Unknown prefixes fall to MTN, which carries most of the country. Getting it
+ * wrong costs a rejected charge and a clear message, not a lost payment.
+ */
+export function ghanaNetwork(phone: string): "MTN" | "VODAFONE" | "AIRTELTIGO" {
+  const digits = String(phone || "").replace(/\D/g, "");
+  // Reduce to the local significant number, however it was typed.
+  const local = digits.startsWith("233") ? digits.slice(3) : digits.replace(/^0+/, "");
+  const prefix = local.slice(0, 2);
+  if (prefix === "20" || prefix === "50") return "VODAFONE";
+  if (prefix === "26" || prefix === "27" || prefix === "56" || prefix === "57") return "AIRTELTIGO";
+  return "MTN";
+}
+
+/**
+ * Read what a Flutterwave charge actually settled at.
+ *
+ * `amount` is what the customer approved; `charged_amount` includes the fee
+ * they were charged on top. The deposit is worth the former.
+ */
+function flwOutcome(data: Record<string, unknown> | undefined): ChargeOutcome {
+  const s = String(data?.status ?? "").toLowerCase();
+  const status: ChargeStatus =
+    s === "successful" ? "confirmed" : s === "failed" || s === "cancelled" ? "failed" : "pending";
+
+  const paid = Number(data?.amount);
+  return {
+    status,
+    paidAmount: Number.isFinite(paid) && paid > 0 ? paid : undefined,
+    paidCurrency: typeof data?.currency === "string" ? data.currency : undefined,
+  };
+}
+
 /** Ghana: direct mobile-money charge with an on-handset prompt. */
 const flutterwaveMomo: GatewayAdapter = {
   id: "flutterwave_momo",
@@ -81,6 +133,7 @@ const flutterwaveMomo: GatewayAdapter = {
         tx_ref: reference,
         amount,
         currency,
+        network: ghanaNetwork(phone),
         phone_number: phone,
         email: email || `${phone}@betlixx.com`,
         fullname: name,
@@ -102,12 +155,17 @@ const flutterwaveMomo: GatewayAdapter = {
   },
   async status(reference) {
     const json = await flwFetch(`/transactions/verify_by_reference?tx_ref=${encodeURIComponent(reference)}`);
-    const s = String(json?.data?.status ?? "").toLowerCase();
-    if (s === "successful") return "confirmed";
-    if (s === "failed" || s === "cancelled") return "failed";
-    return "pending";
+    // A charge nobody has approved yet is simply not there. That is pending,
+    // not failed — failing it would strand a player still holding the prompt.
+    if (!json || json.status !== "success") return { status: "pending" };
+    return flwOutcome(json.data);
   },
 };
+
+/** Verify a Flutterwave charge from the outside, for the webhook. */
+export function flutterwaveVerify(reference: string): Promise<ChargeOutcome> {
+  return flutterwaveMomo.status(reference);
+}
 
 /** Nigeria: hosted checkout, player returns with a status in the URL. */
 const flutterwaveCheckout: GatewayAdapter = {
@@ -167,18 +225,23 @@ const korapay: GatewayAdapter = {
   },
   async status(reference) {
     const key = env("KORAPAY_SECRET_KEY");
-    if (!key) return "pending";
+    if (!key) return { status: "pending" };
     try {
       const res = await fetch(`https://api.korapay.com/merchant/api/v1/charges/${encodeURIComponent(reference)}`, {
         headers: { Authorization: `Bearer ${key}` },
       });
       const json = await res.json();
       const s = String(json?.data?.status ?? "").toLowerCase();
-      if (s === "success") return "confirmed";
-      if (s === "failed" || s === "expired") return "failed";
-      return "pending";
+      const status: ChargeStatus =
+        s === "success" ? "confirmed" : s === "failed" || s === "expired" ? "failed" : "pending";
+      const paid = Number(json?.data?.amount);
+      return {
+        status,
+        paidAmount: Number.isFinite(paid) && paid > 0 ? paid : undefined,
+        paidCurrency: json?.data?.currency,
+      };
     } catch {
-      return "pending";
+      return { status: "pending" };
     }
   },
 };
@@ -220,7 +283,7 @@ const moolre: GatewayAdapter = {
     const key = env("MOOLRE_API_KEY");
     const user = env("MOOLRE_API_USER");
     const account = env("MOOLRE_ACCOUNT_NUMBER");
-    if (!key || !user || !account) return "pending";
+    if (!key || !user || !account) return { status: "pending" };
     try {
       const res = await fetch("https://api.moolre.com/open/transact/status", {
         method: "POST",
@@ -229,11 +292,15 @@ const moolre: GatewayAdapter = {
       });
       const json = await res.json();
       const code = Number(json?.data?.txstatus ?? json?.status);
-      if (code === 1) return "confirmed";
-      if (code === 2 || code === 3) return "failed";
-      return "pending";
+      const status: ChargeStatus = code === 1 ? "confirmed" : code === 2 || code === 3 ? "failed" : "pending";
+      const paid = Number(json?.data?.amount);
+      return {
+        status,
+        paidAmount: Number.isFinite(paid) && paid > 0 ? paid : undefined,
+        paidCurrency: json?.data?.currency,
+      };
     } catch {
-      return "pending";
+      return { status: "pending" };
     }
   },
 };
@@ -269,18 +336,24 @@ const paystack: GatewayAdapter = {
   },
   async status(reference) {
     const key = env("PAYSTACK_SECRET_KEY");
-    if (!key) return "pending";
+    if (!key) return { status: "pending" };
     try {
       const res = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
         headers: { Authorization: `Bearer ${key}` },
       });
       const json = await res.json();
       const s = String(json?.data?.status ?? "").toLowerCase();
-      if (s === "success") return "confirmed";
-      if (s === "failed" || s === "abandoned") return "failed";
-      return "pending";
+      const status: ChargeStatus =
+        s === "success" ? "confirmed" : s === "failed" || s === "abandoned" ? "failed" : "pending";
+      // Paystack reports in the minor unit.
+      const paid = Number(json?.data?.amount) / 100;
+      return {
+        status,
+        paidAmount: Number.isFinite(paid) && paid > 0 ? paid : undefined,
+        paidCurrency: json?.data?.currency,
+      };
     } catch {
-      return "pending";
+      return { status: "pending" };
     }
   },
 };
