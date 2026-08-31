@@ -81,6 +81,7 @@ export async function POST(req: Request) {
     name: user.name,
     phone: user.phone,
     dialCode: country.dialCode,
+    reference,
   });
   if (!customer.ok || !customer.data?.id) {
     return NextResponse.json({ error: customer.error ?? "Could not start the payment" }, { status: 502 });

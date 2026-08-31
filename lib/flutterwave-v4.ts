@@ -21,15 +21,28 @@ function env(name: string): string | undefined {
   return v && v.trim() ? v.trim() : undefined;
 }
 
+/**
+ * The OAuth pair is read under either name.
+ *
+ * `FLUTTERWAVE_V4_*` is what the dashboard and our other deployments call it;
+ * the shorter form was used here first. Accepting both means a deployment that
+ * set one of them does not go dark when the other is the one being asked for.
+ */
+function credential(kind: "CLIENT_ID" | "CLIENT_SECRET"): string | undefined {
+  return env(`FLUTTERWAVE_V4_${kind}`) ?? env(`FLUTTERWAVE_${kind}`);
+}
+
 function baseUrl(): string {
   const override = env("FLUTTERWAVE_V4_BASE_URL");
   if (override) return override.replace(/\/+$/, "");
-  return env("FLUTTERWAVE_ENV") === "live" ? LIVE : SANDBOX;
+  // Live unless a deployment deliberately asks for the sandbox. A missing
+  // variable should not quietly point production at a test rail.
+  return env("FLUTTERWAVE_ENV") === "sandbox" ? SANDBOX : LIVE;
 }
 
 /** True when the deployment can authenticate against v4 at all. */
 export function v4Configured(): boolean {
-  return Boolean(env("FLUTTERWAVE_CLIENT_ID") && env("FLUTTERWAVE_CLIENT_SECRET"));
+  return Boolean(credential("CLIENT_ID") && credential("CLIENT_SECRET"));
 }
 
 /** Cards need one thing more: the key their details are sealed with. */
@@ -48,8 +61,8 @@ let cached: { token: string; expiresAt: number } | null = null;
 async function accessToken(): Promise<string | null> {
   if (cached && cached.expiresAt > Date.now()) return cached.token;
 
-  const clientId = env("FLUTTERWAVE_CLIENT_ID");
-  const clientSecret = env("FLUTTERWAVE_CLIENT_SECRET");
+  const clientId = credential("CLIENT_ID");
+  const clientSecret = credential("CLIENT_SECRET");
   if (!clientId || !clientSecret) return null;
 
   try {
@@ -92,7 +105,8 @@ async function api<T>(
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
-    "X-Trace-Id": randomUUID(),
+    // v4 requires a trace id of 12 characters or more, unique per request.
+    "X-Trace-Id": `betlixx-${randomUUID()}`,
   };
   // Every write carries an idempotency key: a retried request must not become
   // a second charge.
@@ -103,16 +117,25 @@ async function api<T>(
       method: init.method,
       headers,
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      cache: "no-store",
     });
     const json = await res.json().catch(() => null);
 
-    if (!res.ok) {
+    // v4 can answer 200 with a failure in the envelope, so the body decides
+    // as much as the HTTP code does.
+    if (!res.ok || (json?.status && json.status !== "success")) {
       const message =
         json?.error?.validation_errors?.[0]?.message ??
         json?.error?.message ??
         json?.message ??
         `Request failed (${res.status})`;
-      console.error("[flw4]", init.method, path, res.status, message);
+      console.error("[flw4]", init.method, path, res.status, message, "base:", baseUrl());
+
+      // A rejected credential is never the player's fault and never their
+      // problem to read. "Forbidden" belongs in the log, not on the screen.
+      if (res.status === 401 || res.status === 403) {
+        return { ok: false, error: "Payments are not available right now" };
+      }
       return { ok: false, error: String(message) };
     }
     return { ok: true, data: (json?.data ?? json) as T };
@@ -151,19 +174,33 @@ export function encryptField(value: string, nonce: string): string {
 
 // -------------------------------------------------------------- customers
 
+/**
+ * v4 refuses a customer whose email it has seen before, and offers no lookup to
+ * find the one it already has. So every charge gets its own address by
+ * plus-addressing the player's: it routes to the same inbox and never collides.
+ */
+function uniqueEmail(email: string, reference: string): string {
+  const tag = reference.replace(/[^A-Za-z0-9]/g, "").slice(0, 40);
+  const at = email.indexOf("@");
+  if (at > 0) return `${email.slice(0, at)}+${tag}@${email.slice(at + 1)}`;
+  return `deposit-${tag}@betlixx.com`;
+}
+
 export async function createCustomer(opts: {
   email: string;
   name: string;
   phone: string;
   dialCode: string;
+  reference: string;
 }): Promise<ApiResult<{ id: string }>> {
   const [first, ...rest] = opts.name.trim().split(/\s+/);
-  const local = opts.phone.startsWith(opts.dialCode) ? opts.phone.slice(opts.dialCode.length) : opts.phone;
+  const digits = opts.phone.replace(/\D/g, "");
+  const local = digits.startsWith(opts.dialCode) ? digits.slice(opts.dialCode.length) : digits.replace(/^0+/, "");
 
   return api<{ id: string }>("/customers", {
     method: "POST",
     body: {
-      email: opts.email,
+      email: uniqueEmail(opts.email, opts.reference),
       name: { first: first || "Player", last: rest.join(" ") || first || "Player" },
       phone: { country_code: opts.dialCode, number: local },
     },
@@ -245,6 +282,7 @@ export interface RawCharge {
   amount?: number;
   currency?: string;
   reference?: string;
+  processor_response?: { type?: string; code?: string };
   next_action?: {
     type?: string;
     redirect_url?: { url?: string };
@@ -254,9 +292,14 @@ export interface RawCharge {
 }
 
 /** Read a charge's own words about where it is. */
+/** True only when the charge is actually paid. */
+export function chargePaid(charge: RawCharge | undefined): boolean {
+  return String(charge?.status ?? "").toLowerCase() === "succeeded" || charge?.processor_response?.code === "00";
+}
+
 export function readStep(charge: RawCharge | undefined): ChargeStep {
   const status = String(charge?.status ?? "").toLowerCase();
-  if (status === "succeeded") return { kind: "done" };
+  if (chargePaid(charge)) return { kind: "done" };
   if (status === "failed" || status === "voided") return { kind: "failed" };
 
   const action = charge?.next_action;

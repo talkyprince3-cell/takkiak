@@ -79,6 +79,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: result.error ?? "Could not start your deposit" }, { status: 502 });
   }
 
+  // The rail's own charge id is the authoritative way to ask after this
+  // payment later, so it goes on the row the moment we have it.
+  if (result.metadata) {
+    await supabase
+      .from("payments")
+      .update({ metadata: { type: "deposit", gateway: adapter.id, ...result.metadata } })
+      .eq("reference", reference);
+  }
+
   return NextResponse.json({
     reference,
     provider: adapter.id,

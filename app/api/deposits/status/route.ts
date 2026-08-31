@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
   const { data: payment } = await supabase
     .from("payments")
-    .select("reference, user_id, amount, currency, provider, status")
+    .select("reference, user_id, amount, currency, provider, status, metadata")
     .eq("reference", reference)
     .maybeSingle();
 
@@ -30,7 +30,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ status: "confirmed" });
   }
 
-  const outcome = await adapterFor(payment.provider as Gateway).status(reference);
+  const outcome = await adapterFor(payment.provider as Gateway).status(
+    reference,
+    (payment.metadata ?? undefined) as Record<string, unknown> | undefined,
+  );
 
   if (outcome.status === "confirmed") {
     // Credit what the rail says arrived. A player can open a GH₵500 deposit and

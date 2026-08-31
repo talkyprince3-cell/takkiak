@@ -1,10 +1,12 @@
 import type { Gateway } from "./countries";
 import {
   cardsConfigured,
+  chargePaid,
   createCharge,
   createCustomer,
   createMobileMoneyPaymentMethod,
   findChargeByReference,
+  getCharge,
   v4Configured,
 } from "./flutterwave-v4";
 
@@ -39,6 +41,8 @@ export interface ChargeOutcome {
 
 export interface StartResult {
   ok: boolean;
+  /** Anything the payment row should remember, such as the rail's charge id. */
+  metadata?: Record<string, unknown>;
   /** Hosted checkout URL, when the rail redirects. */
   redirectUrl?: string;
   /** True when the player must approve a prompt on their handset. */
@@ -52,7 +56,8 @@ export interface GatewayAdapter {
   id: Gateway;
   label: string;
   start(opts: StartOpts): Promise<StartResult>;
-  status(reference: string): Promise<ChargeOutcome>;
+  /** `meta` is the payment row's metadata, which may carry the charge id. */
+  status(reference: string, meta?: Record<string, unknown>): Promise<ChargeOutcome>;
 }
 
 export interface StartOpts {
@@ -78,29 +83,40 @@ function env(name: string): string | null {
  * Unknown prefixes fall to MTN, which carries most of the country. Getting it
  * wrong costs a rejected charge and a clear message, not a lost payment.
  *
- * Only MTN is spelled out in the v4 docs. The other two are the names the rail
- * used before Vodafone Ghana became Telecel, so they are worth putting a real
- * number through the sandbox before trusting them.
+ * Telecel Cash is still VODAFONE to the rail, whatever the network calls itself
+ * now. These are the codes a working v4 integration sends.
  */
-export function ghanaNetwork(phone: string): "MTN" | "TELECEL" | "AIRTELTIGO" {
+export function ghanaNetwork(phone: string): "MTN" | "VODAFONE" | "AIRTELTIGO" {
   const digits = String(phone || "").replace(/\D/g, "");
   // Reduce to the local significant number, however it was typed.
   const local = digits.startsWith("233") ? digits.slice(3) : digits.replace(/^0+/, "");
   const prefix = local.slice(0, 2);
-  if (prefix === "20" || prefix === "50") return "TELECEL";
+  if (prefix === "20" || prefix === "50") return "VODAFONE";
   if (prefix === "26" || prefix === "27" || prefix === "56" || prefix === "57") return "AIRTELTIGO";
   return "MTN";
 }
 
-/** A v4 charge, read as the rest of the app understands charges. */
-function chargeOutcome(charge: { status?: string; amount?: number; currency?: string } | undefined): ChargeOutcome {
+/**
+ * Ask v4 how a charge ended up.
+ *
+ * The charge id is the authoritative way to ask, so it is used whenever the
+ * payment row kept one. Looking it up by our own reference is the fallback for
+ * a row written before the id came back.
+ */
+async function v4Outcome(reference: string, meta?: Record<string, unknown>): Promise<ChargeOutcome> {
+  const chargeId = typeof meta?.charge_id === "string" ? meta.charge_id : undefined;
+  const charge = chargeId ? await getCharge(chargeId) : await findChargeByReference(reference);
+
   // A charge that is not there yet is a player still holding the prompt. That
   // is pending, not failed — failing it would strand them.
   if (!charge) return { status: "pending" };
 
   const s = String(charge.status ?? "").toLowerCase();
-  const status: ChargeStatus =
-    s === "succeeded" ? "confirmed" : s === "failed" || s === "voided" ? "failed" : "pending";
+  const status: ChargeStatus = chargePaid(charge)
+    ? "confirmed"
+    : s === "failed" || s === "voided"
+      ? "failed"
+      : "pending";
   const paid = Number(charge.amount);
   return {
     status,
@@ -126,6 +142,7 @@ const flutterwaveMomo: GatewayAdapter = {
       name,
       phone,
       dialCode: "233",
+      reference,
     });
     if (!customer.ok || !customer.data?.id) {
       return { ok: false, error: customer.error ?? "Could not start the charge" };
@@ -155,13 +172,12 @@ const flutterwaveMomo: GatewayAdapter = {
     const step = charge.data.step;
     return {
       ok: true,
+      metadata: { charge_id: charge.data.chargeId },
       redirectUrl: step.kind === "redirect" ? step.url : undefined,
       awaitingPrompt: step.kind !== "redirect",
     };
   },
-  async status(reference) {
-    return chargeOutcome(await findChargeByReference(reference));
-  },
+  status: v4Outcome,
 };
 
 /**
@@ -179,9 +195,7 @@ const flutterwaveCard: GatewayAdapter = {
     if (!cardsConfigured()) return { ok: false, error: "Card payments are not available right now" };
     return { ok: true, redirectUrl: `/checkout?reference=${encodeURIComponent(reference)}` };
   },
-  async status(reference) {
-    return chargeOutcome(await findChargeByReference(reference));
-  },
+  status: v4Outcome,
 };
 
 // ---------------------------------------------------------------- Korapay
