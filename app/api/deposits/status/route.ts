@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
-import { adapterFor } from "@/lib/gateways";
+import { adapterFor, settledAmount } from "@/lib/gateways";
 import { applyDepositCredit } from "@/lib/money";
 import type { Gateway } from "@/lib/countries";
 
@@ -30,12 +30,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ status: "confirmed" });
   }
 
-  const status = await adapterFor(payment.provider as Gateway).status(reference);
+  const outcome = await adapterFor(payment.provider as Gateway).status(reference);
 
-  if (status === "confirmed") {
+  if (outcome.status === "confirmed") {
+    // Credit what the rail says arrived. A player can open a GH₵500 deposit and
+    // approve GH₵5 on the handset; that is a GH₵5 deposit.
     const result = await applyDepositCredit({
       userId: payment.user_id,
-      amount: Number(payment.amount),
+      amount: settledAmount(outcome, Number(payment.amount), payment.currency),
       currency: payment.currency,
       reference,
       provider: payment.provider,
@@ -47,7 +49,7 @@ export async function GET(req: Request) {
     });
   }
 
-  if (status === "failed") {
+  if (outcome.status === "failed") {
     await supabase.from("payments").update({ status: "failed" }).eq("reference", reference);
     return NextResponse.json({ status: "failed" });
   }

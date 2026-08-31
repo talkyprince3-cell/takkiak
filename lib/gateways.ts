@@ -369,8 +369,8 @@ const manual: GatewayAdapter = {
   async start() {
     return { ok: true };
   },
-  async status() {
-    return "pending";
+  async status(): Promise<ChargeOutcome> {
+    return { status: "pending" };
   },
 };
 
@@ -382,6 +382,23 @@ const ADAPTERS: Record<Gateway, GatewayAdapter> = {
   paystack,
   manual,
 };
+
+/**
+ * What a confirmed charge is actually worth.
+ *
+ * The rail's own figure wins whenever it gives one in the currency the deposit
+ * was opened in. Everything else — a rail that reports nothing, a figure that
+ * arrives in another currency — falls back to what the player asked for, which
+ * is the best guess available and the behaviour that stood before.
+ */
+export function settledAmount(outcome: ChargeOutcome, requested: number, currency: string): number {
+  const paid = outcome.paidAmount;
+  if (!paid || !Number.isFinite(paid) || paid <= 0) return requested;
+  if (outcome.paidCurrency && outcome.paidCurrency.toUpperCase() !== String(currency).toUpperCase()) {
+    return requested;
+  }
+  return paid;
+}
 
 export function adapterFor(gateway: Gateway): GatewayAdapter {
   return ADAPTERS[gateway] ?? manual;

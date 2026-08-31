@@ -39,9 +39,12 @@ export async function applyDepositCredit(opts: {
   // A payment reference can only ever credit once. This guarded update is what
   // makes the credit safe against two webhooks landing at the same instant:
   // only the run that actually transitions the row out of pending proceeds.
+  // The amount goes back on the row as part of the claim: a charge that settled
+  // short of what was asked for is worth what settled, and the console, the
+  // receipt and the credit should all be reading the same figure.
   const { data: claimed, error: claimErr } = await supabase
     .from("payments")
-    .update({ status: "confirmed", resolved_at: new Date().toISOString() })
+    .update({ status: "confirmed", resolved_at: new Date().toISOString(), amount })
     .eq("reference", reference)
     .in("status", ["pending", "failed"])
     .select("id, user_id, amount, currency")

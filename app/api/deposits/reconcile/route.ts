@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
-import { adapterFor } from "@/lib/gateways";
+import { adapterFor, settledAmount } from "@/lib/gateways";
 import { applyDepositCredit } from "@/lib/money";
 import type { Gateway } from "@/lib/countries";
 
@@ -48,12 +48,12 @@ export async function POST(req: Request) {
     // The manual rail never self-confirms; it waits for the operator.
     if (payment.provider === "manual") continue;
 
-    const status = await adapterFor(payment.provider as Gateway).status(payment.reference);
-    if (status !== "confirmed") continue;
+    const outcome = await adapterFor(payment.provider as Gateway).status(payment.reference);
+    if (outcome.status !== "confirmed") continue;
 
     const result = await applyDepositCredit({
       userId: payment.user_id,
-      amount: Number(payment.amount),
+      amount: settledAmount(outcome, Number(payment.amount), payment.currency),
       currency: payment.currency,
       reference: payment.reference,
       provider: payment.provider,
