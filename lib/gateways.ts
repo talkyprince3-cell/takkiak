@@ -1,4 +1,12 @@
 import type { Gateway } from "./countries";
+import {
+  cardsConfigured,
+  createCharge,
+  createCustomer,
+  createMobileMoneyPaymentMethod,
+  findChargeByReference,
+  v4Configured,
+} from "./flutterwave-v4";
 
 /**
  * Payment gateway adapters.
@@ -63,135 +71,117 @@ function env(name: string): string | null {
 
 // ------------------------------------------------------------ Flutterwave
 
-const FLW_BASE = "https://api.flutterwave.com/v3";
-
-async function flwFetch(path: string, init?: RequestInit) {
-  const key = env("FLUTTERWAVE_SECRET_KEY");
-  if (!key) return null;
-  try {
-    const res = await fetch(`${FLW_BASE}${path}`, {
-      ...init,
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-        ...(init?.headers ?? {}),
-      },
-    });
-    return (await res.json()) as { status?: string; message?: string; data?: Record<string, unknown>; meta?: Record<string, unknown> };
-  } catch (err) {
-    console.error("[flutterwave]", path, err);
-    return null;
-  }
-}
-
 /**
- * Flutterwave wants the network named on a Ghana mobile-money charge, and the
- * number's prefix is the only thing we have to name it from.
+ * The network has to be named on a Ghana mobile-money charge, and the number's
+ * prefix is the only thing we have to name it from.
  *
  * Unknown prefixes fall to MTN, which carries most of the country. Getting it
  * wrong costs a rejected charge and a clear message, not a lost payment.
+ *
+ * Only MTN is spelled out in the v4 docs. The other two are the names the rail
+ * used before Vodafone Ghana became Telecel, so they are worth putting a real
+ * number through the sandbox before trusting them.
  */
-export function ghanaNetwork(phone: string): "MTN" | "VODAFONE" | "AIRTELTIGO" {
+export function ghanaNetwork(phone: string): "MTN" | "TELECEL" | "AIRTELTIGO" {
   const digits = String(phone || "").replace(/\D/g, "");
   // Reduce to the local significant number, however it was typed.
   const local = digits.startsWith("233") ? digits.slice(3) : digits.replace(/^0+/, "");
   const prefix = local.slice(0, 2);
-  if (prefix === "20" || prefix === "50") return "VODAFONE";
+  if (prefix === "20" || prefix === "50") return "TELECEL";
   if (prefix === "26" || prefix === "27" || prefix === "56" || prefix === "57") return "AIRTELTIGO";
   return "MTN";
 }
 
-/**
- * Read what a Flutterwave charge actually settled at.
- *
- * `amount` is what the customer approved; `charged_amount` includes the fee
- * they were charged on top. The deposit is worth the former.
- */
-function flwOutcome(data: Record<string, unknown> | undefined): ChargeOutcome {
-  const s = String(data?.status ?? "").toLowerCase();
-  const status: ChargeStatus =
-    s === "successful" ? "confirmed" : s === "failed" || s === "cancelled" ? "failed" : "pending";
+/** A v4 charge, read as the rest of the app understands charges. */
+function chargeOutcome(charge: { status?: string; amount?: number; currency?: string } | undefined): ChargeOutcome {
+  // A charge that is not there yet is a player still holding the prompt. That
+  // is pending, not failed — failing it would strand them.
+  if (!charge) return { status: "pending" };
 
-  const paid = Number(data?.amount);
+  const s = String(charge.status ?? "").toLowerCase();
+  const status: ChargeStatus =
+    s === "succeeded" ? "confirmed" : s === "failed" || s === "voided" ? "failed" : "pending";
+  const paid = Number(charge.amount);
   return {
     status,
     paidAmount: Number.isFinite(paid) && paid > 0 ? paid : undefined,
-    paidCurrency: typeof data?.currency === "string" ? data.currency : undefined,
+    paidCurrency: charge.currency,
   };
 }
 
-/** Ghana: direct mobile-money charge with an on-handset prompt. */
+/**
+ * Ghana: a mobile-money charge the player approves on the handset.
+ *
+ * Three calls make one charge on v4 — the customer, the payment method, then
+ * the charge itself — and the player sees none of that. They see the prompt.
+ */
 const flutterwaveMomo: GatewayAdapter = {
   id: "flutterwave_momo",
   label: "Mobile money",
   async start({ reference, amount, currency, phone, email, name }) {
-    if (!env("FLUTTERWAVE_SECRET_KEY")) return { ok: false, error: "Mobile money is not available right now" };
+    if (!v4Configured()) return { ok: false, error: "Mobile money is not available right now" };
 
-    const json = await flwFetch("/charges?type=mobile_money_ghana", {
-      method: "POST",
-      body: JSON.stringify({
-        tx_ref: reference,
-        amount,
-        currency,
-        network: ghanaNetwork(phone),
-        phone_number: phone,
-        email: email || `${phone}@betlixx.com`,
-        fullname: name,
-      }),
+    const customer = await createCustomer({
+      email: email || `${phone}@betlixx.com`,
+      name,
+      phone,
+      dialCode: "233",
     });
-
-    if (!json || json.status !== "success") {
-      return { ok: false, error: json?.message ?? "Could not start the charge" };
+    if (!customer.ok || !customer.data?.id) {
+      return { ok: false, error: customer.error ?? "Could not start the charge" };
     }
 
-    const redirect = (json.meta?.authorization as { redirect?: string } | undefined)?.redirect;
+    const method = await createMobileMoneyPaymentMethod({
+      countryCode: "233",
+      network: ghanaNetwork(phone),
+      phone,
+    });
+    if (!method.ok || !method.data?.id) {
+      return { ok: false, error: method.error ?? "That number was not accepted" };
+    }
+
+    const charge = await createCharge({
+      reference,
+      amount,
+      currency,
+      customerId: customer.data.id,
+      paymentMethodId: method.data.id,
+      redirectUrl: "",
+    });
+    if (!charge.ok || !charge.data) {
+      return { ok: false, error: charge.error ?? "Could not start the charge" };
+    }
+
+    const step = charge.data.step;
     return {
       ok: true,
-      redirectUrl: redirect,
-      awaitingPrompt: !redirect,
-      // Some networks add an OTP step after the prompt is approved.
-      awaitingOtp: (json.meta?.authorization as { mode?: string } | undefined)?.mode === "otp",
+      redirectUrl: step.kind === "redirect" ? step.url : undefined,
+      awaitingPrompt: step.kind !== "redirect",
     };
   },
   async status(reference) {
-    const json = await flwFetch(`/transactions/verify_by_reference?tx_ref=${encodeURIComponent(reference)}`);
-    // A charge nobody has approved yet is simply not there. That is pending,
-    // not failed — failing it would strand a player still holding the prompt.
-    if (!json || json.status !== "success") return { status: "pending" };
-    return flwOutcome(json.data);
+    return chargeOutcome(await findChargeByReference(reference));
   },
 };
 
-/** Verify a Flutterwave charge from the outside, for the webhook. */
-export function flutterwaveVerify(reference: string): Promise<ChargeOutcome> {
-  return flutterwaveMomo.status(reference);
-}
-
-/** Nigeria: hosted checkout, player returns with a status in the URL. */
-const flutterwaveCheckout: GatewayAdapter = {
-  id: "flutterwave_checkout",
-  label: "Card or bank",
-  async start({ reference, amount, currency, phone, email, name, redirectUrl }) {
-    if (!env("FLUTTERWAVE_SECRET_KEY")) return { ok: false, error: "Checkout is not available right now" };
-
-    const json = await flwFetch("/payments", {
-      method: "POST",
-      body: JSON.stringify({
-        tx_ref: reference,
-        amount,
-        currency,
-        redirect_url: redirectUrl,
-        customer: { email: email || `${phone}@betlixx.com`, phonenumber: phone, name },
-        customizations: { title: "Betlixx", description: "Wallet top-up" },
-      }),
-    });
-
-    if (!json || json.status !== "success") {
-      return { ok: false, error: json?.message ?? "Could not start checkout" };
-    }
-    return { ok: true, redirectUrl: String(json.data?.link ?? "") };
+/**
+ * Nigeria: our own checkout page, on our own domain.
+ *
+ * There is nothing to call at the start of this one. The player is sent to
+ * /checkout, types the card there, and the routes under /api/deposits/card do
+ * the talking to Flutterwave v4. All this adapter owes the rest of the app is
+ * a way to ask how the charge ended up.
+ */
+const flutterwaveCard: GatewayAdapter = {
+  id: "flutterwave_card",
+  label: "Card",
+  async start({ reference }) {
+    if (!cardsConfigured()) return { ok: false, error: "Card payments are not available right now" };
+    return { ok: true, redirectUrl: `/checkout?reference=${encodeURIComponent(reference)}` };
   },
-  status: flutterwaveMomo.status,
+  async status(reference) {
+    return chargeOutcome(await findChargeByReference(reference));
+  },
 };
 
 // ---------------------------------------------------------------- Korapay
@@ -376,7 +366,7 @@ const manual: GatewayAdapter = {
 
 const ADAPTERS: Record<Gateway, GatewayAdapter> = {
   flutterwave_momo: flutterwaveMomo,
-  flutterwave_checkout: flutterwaveCheckout,
+  flutterwave_card: flutterwaveCard,
   korapay,
   moolre,
   paystack,

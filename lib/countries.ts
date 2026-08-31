@@ -5,7 +5,13 @@
  */
 
 export type PayoutRail = "mobile" | "bank";
-export type Gateway = "flutterwave_momo" | "flutterwave_checkout" | "korapay" | "moolre" | "paystack" | "manual";
+export type Gateway =
+  | "flutterwave_momo"
+  | "flutterwave_card"
+  | "korapay"
+  | "moolre"
+  | "paystack"
+  | "manual";
 
 export type KycKind = "bvn" | "nin" | "national_id";
 
@@ -60,7 +66,8 @@ const BASE: Record<string, CountryConfig> = {
     currencySymbol: "₦",
     dialCode: "234",
     phoneDigits: 10,
-    gateway: "flutterwave_checkout",
+    // Cards are taken on our own checkout page rather than a hosted one.
+    gateway: "flutterwave_card",
     payoutRail: "bank",
     kyc: [
       { kind: "bvn", label: "BVN", pattern: /^\d{11}$/, hint: "11 digits" },
