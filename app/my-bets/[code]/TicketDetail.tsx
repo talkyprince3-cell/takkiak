@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useSlip, useSession, type SlipLeg } from "@/lib/store";
 import { formatMoney } from "@/lib/countries";
+import { marketName } from "@/lib/markets";
 
 /**
  * One ticket in full.
@@ -192,7 +193,7 @@ export function TicketDetail({ code }: { code: string }) {
       league: l.league ?? "",
       kickoff: l.kickoff ?? "",
       market: l.market,
-      marketLabel: l.market.toUpperCase(),
+      marketLabel: marketName(l.market),
       outcome: l.outcome,
       outcomeLabel: l.outcome,
       odds: Number(l.odds),
@@ -218,7 +219,7 @@ export function TicketDetail({ code }: { code: string }) {
             league: l.league ?? "",
             kickoff: l.kickoff ?? "",
             market: l.market,
-            marketLabel: l.market.toUpperCase(),
+            marketLabel: marketName(l.market),
             outcome: l.outcome,
             outcomeLabel: l.outcome,
             odds: Number(l.odds),
@@ -602,7 +603,7 @@ function LegCard({ leg }: { leg: Leg }) {
           )}
           <div className="flex justify-between">
             <dt className="text-[var(--text-muted)]">Market</dt>
-            <dd className="font-medium">{leg.market.toUpperCase()}</dd>
+            <dd className="font-medium">{marketName(leg.market)}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-[var(--text-muted)]">Pick</dt>
@@ -634,7 +635,7 @@ function LegCard({ leg }: { leg: Leg }) {
 
         <div className="mt-2 flex items-center justify-between">
           <Link
-            href={`/match/${leg.match_id}`}
+            href={`/match/${leg.match_id}/tracker`}
             className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--accent)]"
           >
             <LineChart size={13} strokeWidth={2} />

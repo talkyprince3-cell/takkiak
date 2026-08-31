@@ -162,3 +162,44 @@ export const MARKET_FILTERS: { key: MarketGroup | "all"; label: string }[] = [
   { key: "teams", label: "Teams" },
   { key: "specials", label: "Specials" },
 ];
+
+
+/**
+ * A readable name for a stored market key.
+ *
+ * A leg records the key it was struck on, not the label, so a settled ticket
+ * would otherwise show "AF1" where it means the match result. The live market
+ * carries the proper label, but a ticket outlives the market it was placed on,
+ * so the common keys are named here too.
+ */
+const KEY_LABELS: Record<string, string> = {
+  "1x2": "1X2",
+  af1: "1X2",
+  dc: "Double Chance",
+  af12: "Double Chance",
+  dnb: "Draw No Bet",
+  af2: "Draw No Bet",
+  ou25: "Over / Under 2.5",
+  ou15: "Over / Under 1.5",
+  af5: "Over / Under",
+  af50: "Goal Line",
+  btts: "GG / NG",
+  af8: "GG / NG",
+  cs: "Correct Score",
+  af10: "Correct Score",
+  oe: "Odd / Even",
+  af21: "Odd / Even",
+  eg: "Exact Goals",
+  af38: "Exact Goals",
+  af9: "Handicap",
+  af4: "Asian Handicap",
+  af13: "1st Half 1X2",
+  af6: "1st Half Over / Under",
+  af3: "2nd Half 1X2",
+  af7: "HT / FT",
+  af45: "Corners Over / Under",
+};
+
+export function marketName(key: string): string {
+  return KEY_LABELS[key.toLowerCase()] ?? key.toUpperCase();
+}

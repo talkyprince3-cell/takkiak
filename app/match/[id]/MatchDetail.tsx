@@ -116,7 +116,13 @@ export function MatchDetail({ id }: { id: string }) {
                     ? "Postponed"
                     : "Live In-Play Available"}
               </span>
-              <LineChart size={17} strokeWidth={1.8} className="text-[var(--hint)]" />
+              <Link
+                href={`/match/${id}/tracker`}
+                className="flex items-center gap-1.5 text-[12px] font-medium text-[var(--accent)]"
+              >
+                <LineChart size={15} strokeWidth={2} />
+                Tracker
+              </Link>
             </div>
 
             <Watermark />
