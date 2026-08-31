@@ -61,13 +61,20 @@ async function call<T>(path: string): Promise<T | null> {
   }
 }
 
-function classify(type: string, detail: string): EventKind {
+export function classifyEvent(type: string, detail: string): EventKind {
   const t = (type || "").toLowerCase();
-  if (t === "goal") return "goal";
+  const d = (detail || "").toLowerCase();
+
+  if (t === "goal") {
+    // The feed files a missed penalty under Goal. Counting it as one puts more
+    // markers on the pitch than the scoreline has goals, which was visible the
+    // moment it was drawn.
+    if (d.includes("missed")) return "other";
+    return "goal";
+  }
   if (t === "card") return "card";
   if (t === "subst") return "sub";
   if (t === "var") return "var";
-  if (detail.toLowerCase().includes("goal")) return "goal";
   return "other";
 }
 
@@ -103,7 +110,7 @@ async function upstreamTracker(fixtureId: string, homeTeamId: number | null): Pr
     .map((e) => ({
       minute: Number(e.time.elapsed),
       extra: e.time.extra ?? null,
-      kind: classify(e.type, e.detail ?? ""),
+      kind: classifyEvent(e.type, e.detail ?? ""),
       detail: e.detail ?? e.type ?? "",
       side: (homeId !== null && e.team.id === homeId ? "home" : "away") as "home" | "away",
       player: e.player?.name ?? null,

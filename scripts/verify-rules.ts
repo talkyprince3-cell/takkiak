@@ -8,6 +8,7 @@ import { checkWithdrawalGate } from "../lib/withdrawals";
 import { buildMarkets } from "../lib/markets";
 import { resolveSelection } from "../lib/resolve";
 import { isMinorCompetition } from "../lib/api-football";
+import { classifyEvent } from "../lib/tracker";
 import { normalisePhone, maskPhoneTail } from "../lib/countries";
 import { cashoutOffer, CASHOUT_MARGIN, type CashoutLeg } from "../lib/cashout";
 import { correctScoreMarket, goalCountMarkets, ratesFromOdds } from "../lib/scoreline";
@@ -489,6 +490,25 @@ console.log("Live card filtering and phone handling");
   check("a short number is rejected", normalisePhone("12345", "GH") === null);
   check("a phone masks to its tail", maskPhoneTail("233531234086") === "53****086",
     maskPhoneTail("233531234086"));
+}
+
+console.log("");
+console.log("Match tracker event classification");
+{
+  check("a normal goal is a goal", classifyEvent("Goal", "Normal Goal") === "goal");
+  check("a penalty scored is a goal", classifyEvent("Goal", "Penalty") === "goal");
+  check("an own goal is a goal", classifyEvent("Goal", "Own Goal") === "goal");
+
+  // The feed files a missed penalty under Goal. Counting it put more markers on
+  // the pitch than the scoreline had goals.
+  check("a missed penalty is not a goal", classifyEvent("Goal", "Missed Penalty") !== "goal",
+    classifyEvent("Goal", "Missed Penalty"));
+
+  check("a yellow card is a card", classifyEvent("Card", "Yellow Card") === "card");
+  check("a red card is a card", classifyEvent("Card", "Red Card") === "card");
+  check("a substitution is a sub", classifyEvent("subst", "Substitution 1") === "sub");
+  check("a VAR check is var", classifyEvent("Var", "Goal cancelled") === "var");
+  check("anything unknown falls back to other", classifyEvent("Whatever", "") === "other");
 }
 
 console.log(failures === 0 ? "\nAll rule checks passed.\n" : `\n${failures} check(s) failed.\n`);

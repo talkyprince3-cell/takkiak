@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import type { FeedMatch } from "@/lib/fixtures";
 import type { TrackerEvent, TrackerStat } from "@/lib/tracker";
+import { PitchTracker } from "@/components/PitchTracker";
 
 const POLL_MS = 20_000;
 
@@ -65,6 +66,18 @@ export function TrackerView({ id }: { id: string }) {
 
   const match = data?.match ?? null;
 
+  // Possession is read from the statistics the feed reports, and is simply
+  // absent for most matches in play.
+  const possession = (() => {
+    const row = data?.stats.find((s) => s.label.toLowerCase().includes("possession"));
+    if (!row) return null;
+    const num = (v: string | number | null) => Number(String(v ?? "").replace("%", ""));
+    const h = num(row.home);
+    const a = num(row.away);
+    if (!Number.isFinite(h) || !Number.isFinite(a) || h + a === 0) return null;
+    return { home: Math.round(h), away: Math.round(a) };
+  })();
+
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <header className="sticky top-0 z-40 bg-[var(--surface)]">
@@ -101,21 +114,36 @@ export function TrackerView({ id }: { id: string }) {
       ) : (
         <div className="mx-auto max-w-2xl pb-12">
           {match && (
-            <section className="flex items-center justify-between gap-2 bg-[var(--surface)] px-4 py-5">
-              <Side name={match.homeTeam} crest={match.homeCrest} />
-              <div className="shrink-0 text-center">
-                <p className="text-[30px] font-black leading-none text-[var(--text-bright)]">
-                  {match.scoreHome ?? 0} - {match.scoreAway ?? 0}
-                </p>
-                <p
-                  className="mt-1 text-[12px] font-bold"
-                  style={{ color: match.isLive ? "var(--live)" : "var(--text-muted)" }}
-                >
-                  {match.isLive ? match.minuteLabel : "Not started"}
-                </p>
+            <>
+              <section className="flex items-center justify-between gap-2 bg-[var(--surface)] px-4 py-4">
+                <Side name={match.homeTeam} crest={match.homeCrest} />
+                <div className="shrink-0 text-center">
+                  <p className="text-[12px] text-[var(--text-muted)]">
+                    {match.country} - {match.league}
+                  </p>
+                  <p
+                    className="mt-0.5 text-[13px] font-bold"
+                    style={{ color: match.isLive ? "var(--live)" : "var(--text-muted)" }}
+                  >
+                    {match.isLive ? match.minuteLabel : "Not started"}
+                  </p>
+                </div>
+                <Side name={match.awayTeam} crest={match.awayCrest} />
+              </section>
+
+              <div className="p-3">
+                <PitchTracker
+                  events={data.events}
+                  homeTeam={match.homeTeam}
+                  awayTeam={match.awayTeam}
+                  scoreHome={match.scoreHome ?? 0}
+                  scoreAway={match.scoreAway ?? 0}
+                  minuteLabel={match.minuteLabel}
+                  isLive={match.isLive}
+                  possession={possession}
+                />
               </div>
-              <Side name={match.awayTeam} crest={match.awayCrest} />
-            </section>
+            </>
           )}
 
           <h2 className="px-4 pb-2 pt-4 text-[13px] font-bold text-[var(--text-bright)]">Timeline</h2>
