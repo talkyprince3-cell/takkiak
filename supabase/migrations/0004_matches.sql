@@ -5,7 +5,7 @@ create table if not exists custom_matches (
   away_team text not null,
   home_crest text,
   away_crest text,
-  league text not null default 'Betlixx Special',
+  league text not null default 'Stakeza Special',
   sport text not null default 'football',
   kickoff timestamptz not null,
   odds_home numeric(10,3) not null,

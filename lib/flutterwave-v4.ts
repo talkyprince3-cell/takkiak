@@ -106,7 +106,7 @@ async function api<T>(
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
     // v4 requires a trace id of 12 characters or more, unique per request.
-    "X-Trace-Id": `betlixx-${randomUUID()}`,
+    "X-Trace-Id": `stakeza-${randomUUID()}`,
   };
   // Every write carries an idempotency key: a retried request must not become
   // a second charge.
@@ -183,7 +183,7 @@ function uniqueEmail(email: string, reference: string): string {
   const tag = reference.replace(/[^A-Za-z0-9]/g, "").slice(0, 40);
   const at = email.indexOf("@");
   if (at > 0) return `${email.slice(0, at)}+${tag}@${email.slice(at + 1)}`;
-  return `deposit-${tag}@betlixx.com`;
+  return `deposit-${tag}@stakeza.com`;
 }
 
 export async function createCustomer(opts: {

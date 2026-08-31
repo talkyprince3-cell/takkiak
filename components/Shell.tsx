@@ -97,7 +97,7 @@ export function Header() {
     <header className="sticky top-0 z-40 bg-[var(--surface)]">
       <div className="flex h-[44px] w-full items-center gap-2 px-2.5 md:px-5">
         <Link href="/" className="flex shrink-0 items-center">
-          <Image src="/logo-mark.svg" alt="Betlixx" width={26} height={26} priority />
+          <Image src="/logo-mark.svg" alt="Stakeza" width={26} height={26} priority />
         </Link>
 
         <div className="flex flex-1 items-center justify-end gap-2">

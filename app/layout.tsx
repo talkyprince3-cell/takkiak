@@ -12,7 +12,7 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "Betlixx Ghana | Online Sports Betting, Mobile Money Deposits",
+  title: "Stakeza Ghana | Online Sports Betting, Mobile Money Deposits",
   description:
     "Bet on football with mobile money. Fast deposits, fast payouts, booking codes and daily boosted odds.",
   manifest: "/manifest.json",

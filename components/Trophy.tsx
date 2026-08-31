@@ -1,10 +1,13 @@
 /**
  * The win trophy.
  *
- * Drawn rather than sourced: the reference is another operator's branded
- * artwork, so this is an original cup in the Betlixx palette — lime through
- * gold on the bowl, the brand mark on the face, an indigo plinth — on a
- * transparent ground so it sits over any backdrop.
+ * Drawn rather than sourced. The brief was the cup the big operators put on a
+ * winning slip, so this is that shape — gold bowl, handles that return to the
+ * body, flared foot, plinth — drawn from scratch rather than traced off anyone
+ * else's artwork. The lime stays where the brand lives: the burst behind it and
+ * the glow it throws.
+ *
+ * Transparent ground, so it sits over any backdrop.
  */
 export function Trophy({ size = 220, className }: { size?: number; className?: string }) {
   return (
@@ -18,84 +21,100 @@ export function Trophy({ size = 220, className }: { size?: number; className?: s
       aria-label="Trophy"
     >
       <defs>
-        <linearGradient id="cup" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#EFFFC2" />
-          <stop offset="0.28" stopColor="#C9F94A" />
-          <stop offset="0.62" stopColor="#9FF611" />
-          <stop offset="1" stopColor="#6FA80A" />
+        <linearGradient id="gold" x1="0.1" y1="0" x2="0.9" y2="1">
+          <stop offset="0" stopColor="#FFF6D0" />
+          <stop offset="0.22" stopColor="#FFDE7A" />
+          <stop offset="0.55" stopColor="#F7B927" />
+          <stop offset="0.82" stopColor="#D98A08" />
+          <stop offset="1" stopColor="#A96504" />
         </linearGradient>
 
-        <linearGradient id="cupEdge" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#FFFFFF" stopOpacity=".85" />
-          <stop offset="0.5" stopColor="#FFFFFF" stopOpacity="0" />
-          <stop offset="1" stopColor="#3F5C05" stopOpacity=".5" />
+        <linearGradient id="goldRim" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#FFF8DC" />
+          <stop offset="0.55" stopColor="#FFD98A" />
+          <stop offset="1" stopColor="#E0930C" />
+        </linearGradient>
+
+        {/* Light down one side, the turn of the metal down the other. */}
+        <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#FFFFFF" stopOpacity=".55" />
+          <stop offset="0.34" stopColor="#FFFFFF" stopOpacity="0" />
+          <stop offset="1" stopColor="#7A4A02" stopOpacity=".35" />
         </linearGradient>
 
         <linearGradient id="plinth" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#3B3470" />
-          <stop offset="1" stopColor="#1C1A31" />
+          <stop offset="1" stopColor="#1A1830" />
         </linearGradient>
 
-        <radialGradient id="halo" cx="0.5" cy="0.44" r="0.5">
-          <stop offset="0" stopColor="#9FF611" stopOpacity=".55" />
-          <stop offset="0.55" stopColor="#9FF611" stopOpacity=".12" />
+        <radialGradient id="halo" cx="0.5" cy="0.42" r="0.52">
+          <stop offset="0" stopColor="#FFD24A" stopOpacity=".45" />
+          <stop offset="0.5" stopColor="#9FF611" stopOpacity=".14" />
           <stop offset="1" stopColor="#9FF611" stopOpacity="0" />
         </radialGradient>
       </defs>
 
       {/* Glow behind the cup */}
-      <circle cx="120" cy="106" r="104" fill="url(#halo)" />
+      <circle cx="120" cy="102" r="106" fill="url(#halo)" />
 
-      {/* Rays */}
-      <g stroke="#9FF611" strokeOpacity=".35" strokeWidth="3" strokeLinecap="round">
-        <path d="M120 8v18M120 186v16M22 106h18M200 106h18" />
-        <path d="M50 36l13 13M177 163l13 13M190 36l-13 13M63 163l-13 13" />
+      {/* Burst. Nothing crosses the handle openings. */}
+      <g stroke="#9FF611" strokeOpacity=".6" strokeWidth="3" strokeLinecap="round">
+        <path d="M120 10v16" />
+        <path d="M50 34l12 12M190 34l-12 12M46 158l12-10M194 158l-12-10" />
       </g>
 
-      {/* Handles */}
+      {/* Handles, both ends landing on the bowl */}
       <path
-        d="M62 62H40c-12 0-18 10-18 22 0 22 16 38 40 42"
-        stroke="url(#cup)"
+        d="M63 70C34 70 20 82 20 100c0 20 17 33 55 30"
+        stroke="url(#gold)"
         strokeWidth="11"
         strokeLinecap="round"
         fill="none"
       />
       <path
-        d="M178 62h22c12 0 18 10 18 22 0 22-16 38-40 42"
-        stroke="url(#cup)"
+        d="M177 70c29 0 43 12 43 30 0 20-17 33-55 30"
+        stroke="url(#gold)"
         strokeWidth="11"
         strokeLinecap="round"
         fill="none"
       />
 
       {/* Bowl */}
-      <path d="M60 48h120v46c0 36-27 62-60 62s-60-26-60-62V48z" fill="url(#cup)" />
-      <path d="M60 48h120v46c0 36-27 62-60 62s-60-26-60-62V48z" fill="url(#cupEdge)" />
+      <path d="M62 58C62 110 76 146 120 156C164 146 178 110 178 58Z" fill="url(#gold)" />
+      <path d="M62 58C62 110 76 146 120 156C164 146 178 110 178 58Z" fill="url(#sheen)" />
 
       {/* Rim */}
-      <rect x="54" y="40" width="132" height="14" rx="7" fill="#E6FFB0" />
-      <rect x="54" y="40" width="132" height="7" rx="3.5" fill="#FFFFFF" fillOpacity=".55" />
+      <rect x="54" y="42" width="132" height="18" rx="9" fill="url(#goldRim)" />
+      <rect x="58" y="45" width="124" height="6" rx="3" fill="#FFFFFF" fillOpacity=".5" />
 
-      {/* Brand mark on the face */}
-      <path
-        d="M100 74h22c8.4 0 13.6 4.2 13.6 10.9 0 4.7-2.5 7.9-6.7 9.4 5.2 1.2 8.4 4.9 8.4 10.4 0 7.7-5.7 12.1-15.1 12.1H100V74zm10.9 16.6h8.4c3.2 0 5.2-1.5 5.2-4.2s-2-4-5.2-4h-8.4v8.2zm0 17.1h9.2c3.7 0 5.7-1.5 5.7-4.5s-2-4.2-5.7-4.2h-9.2v8.7z"
-        fill="#1C1A31"
-        fillOpacity=".55"
-      />
+      {/* The mark, struck into the face */}
+      <text
+        x="120"
+        y="122"
+        textAnchor="middle"
+        fontFamily="ui-sans-serif,system-ui,Segoe UI,Roboto,Arial,sans-serif"
+        fontSize="64"
+        fontWeight="800"
+        fill="#7A4A02"
+        fillOpacity=".38"
+      >
+        S
+      </text>
 
       {/* Stem and foot */}
-      <path d="M112 156h16v18h-16z" fill="#7FC50E" />
-      <path d="M96 174h48l-6 14H102z" fill="#9FF611" />
+      <path d="M111 154h18v18h-18z" fill="#C97D06" />
+      <path d="M99 172h42l10 16H89z" fill="url(#gold)" />
+      <rect x="84" y="186" width="72" height="9" rx="4.5" fill="#E9A417" />
 
       {/* Plinth */}
-      <rect x="72" y="188" width="96" height="26" rx="6" fill="url(#plinth)" />
-      <rect x="72" y="188" width="96" height="6" rx="3" fill="#4A4184" />
+      <rect x="70" y="194" width="100" height="26" rx="8" fill="url(#plinth)" />
+      <rect x="70" y="194" width="100" height="6" rx="3" fill="url(#gold)" />
 
       {/* Sparkles */}
       <g fill="#FFFFFF">
-        <path d="M196 52l3.4 7.6 7.6 3.4-7.6 3.4-3.4 7.6-3.4-7.6-7.6-3.4 7.6-3.4z" opacity=".9" />
-        <path d="M44 128l2.4 5.4 5.4 2.4-5.4 2.4-2.4 5.4-2.4-5.4-5.4-2.4 5.4-2.4z" opacity=".7" />
-        <path d="M168 26l1.8 4 4 1.8-4 1.8-1.8 4-1.8-4-4-1.8 4-1.8z" opacity=".6" />
+        <path d="M198 46l3.4 7.6 7.6 3.4-7.6 3.4-3.4 7.6-3.4-7.6-7.6-3.4 7.6-3.4z" opacity=".9" />
+        <path d="M42 170l2.4 5.4 5.4 2.4-5.4 2.4-2.4 5.4-2.4-5.4-5.4-2.4 5.4-2.4z" opacity=".7" />
+        <path d="M168 22l1.8 4 4 1.8-4 1.8-1.8 4-1.8-4-4-1.8 4-1.8z" opacity=".6" />
       </g>
     </svg>
   );

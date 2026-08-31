@@ -77,7 +77,7 @@ export async function POST(req: Request) {
   const country = getCountry(user.country_code);
 
   const customer = await createCustomer({
-    email: user.email || `${user.phone}@betlixx.com`,
+    email: user.email || `${user.phone}@stakeza.com`,
     name: user.name,
     phone: user.phone,
     dialCode: country.dialCode,

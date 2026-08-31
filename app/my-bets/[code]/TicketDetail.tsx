@@ -163,12 +163,12 @@ export function TicketDetail({ code }: { code: string }) {
   const showOff = async () => {
     if (!data) return;
     const amount = formatMoney(Number(data.bet.payout ?? 0), data.bet.currency);
-    const text = `I just won ${amount} on Betlixx. Ticket ${data.bet.code}.`;
+    const text = `I just won ${amount} on Stakeza. Ticket ${data.bet.code}.`;
     const url = typeof window !== "undefined" ? window.location.origin : "";
 
     if (navigator.share) {
       try {
-        await navigator.share({ title: "Betlixx win", text, url });
+        await navigator.share({ title: "Stakeza win", text, url });
         return;
       } catch {
         /* dismissed */

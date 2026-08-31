@@ -21,7 +21,7 @@ create table if not exists goal_notifications (
 );
 
 insert into app_settings (key, value) values
-  ('deposit_account_name', 'Betlixx Ghana'),
+  ('deposit_account_name', 'Stakeza Ghana'),
   ('deposit_account_number', '0244000000'),
   ('deposit_account_network', 'MTN Mobile Money')
 on conflict (key) do nothing;

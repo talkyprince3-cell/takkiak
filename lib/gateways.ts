@@ -138,7 +138,7 @@ const flutterwaveMomo: GatewayAdapter = {
     if (!v4Configured()) return { ok: false, error: "Mobile money is not available right now" };
 
     const customer = await createCustomer({
-      email: email || `${phone}@betlixx.com`,
+      email: email || `${phone}@stakeza.com`,
       name,
       phone,
       dialCode: "233",
@@ -215,7 +215,7 @@ const korapay: GatewayAdapter = {
           amount,
           currency,
           redirect_url: redirectUrl,
-          customer: { email: email || "player@betlixx.com", name },
+          customer: { email: email || "player@stakeza.com", name },
           notification_url: `${redirectUrl.split("/account")[0]}/api/deposits/korapay/webhook`,
         }),
       });
@@ -326,7 +326,7 @@ const paystack: GatewayAdapter = {
           // Paystack takes the minor unit.
           amount: Math.round(amount * 100),
           currency,
-          email: email || `${phone}@betlixx.com`,
+          email: email || `${phone}@stakeza.com`,
           callback_url: redirectUrl,
         }),
       });

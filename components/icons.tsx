@@ -34,7 +34,7 @@ export function BallIcon({ size = 24, strokeWidth = 1.7, className }: IconProps)
   );
 }
 
-/** Betlixx mark, for the home tab in the bottom navigation. */
+/** Stakeza mark, for the home tab in the bottom navigation. */
 export function BrandIcon({ size = 20, className }: { size?: number; className?: string }) {
   return (
     <svg
@@ -45,10 +45,17 @@ export function BrandIcon({ size = 20, className }: { size?: number; className?:
       aria-hidden="true"
     >
       <rect width="40" height="40" rx="10" fill="currentColor" />
-      <path
-        d="M12 11h9.2c3.4 0 5.5 1.7 5.5 4.4 0 1.9-1 3.2-2.7 3.8 2.1.5 3.4 2 3.4 4.2 0 3.1-2.3 4.9-6.1 4.9H12V11zm4.4 6.7h3.4c1.3 0 2.1-.6 2.1-1.7s-.8-1.6-2.1-1.6h-3.4v3.3zm0 6.9h3.7c1.5 0 2.3-.6 2.3-1.8s-.8-1.7-2.3-1.7h-3.7v3.5z"
+      <text
+        x="20"
+        y="29"
+        textAnchor="middle"
+        fontFamily="ui-sans-serif,system-ui,Segoe UI,Roboto,Arial,sans-serif"
+        fontSize="27"
+        fontWeight="800"
         fill="var(--bg)"
-      />
+      >
+        S
+      </text>
     </svg>
   );
 }

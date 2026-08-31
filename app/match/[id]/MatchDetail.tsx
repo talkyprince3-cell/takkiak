@@ -277,7 +277,7 @@ function Watermark() {
   return (
     <div className="flex items-center gap-3 px-6 py-4 md:px-5">
       <span className="h-px flex-1 bg-[var(--line)]" />
-      <span className="text-[10px] font-bold tracking-[0.3em] text-[var(--text-faint)]">BETLIXX</span>
+      <span className="text-[10px] font-bold tracking-[0.3em] text-[var(--text-faint)]">STAKEZA</span>
       <span className="h-px flex-1 bg-[var(--line)]" />
     </div>
   );

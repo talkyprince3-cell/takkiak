@@ -1,4 +1,4 @@
--- Betlixx: all migrations concatenated. Idempotent, safe to re-run.
+-- Stakeza: all migrations concatenated. Idempotent, safe to re-run.
 -- Generated from supabase/migrations/ — do not edit by hand.
 
 -- ============ 0001_users.sql ============
@@ -114,7 +114,7 @@ create table if not exists custom_matches (
   away_team text not null,
   home_crest text,
   away_crest text,
-  league text not null default 'Betlixx Special',
+  league text not null default 'Stakeza Special',
   sport text not null default 'football',
   kickoff timestamptz not null,
   odds_home numeric(10,3) not null,
@@ -197,7 +197,7 @@ create table if not exists goal_notifications (
 );
 
 insert into app_settings (key, value) values
-  ('deposit_account_name', 'Betlixx Ghana'),
+  ('deposit_account_name', 'Stakeza Ghana'),
   ('deposit_account_number', '0244000000'),
   ('deposit_account_network', 'MTN Mobile Money')
 on conflict (key) do nothing;
@@ -269,4 +269,18 @@ do $$ begin
   alter table bets add constraint bets_status_chk
     check (status in ('pending','won','lost','void','cashed_out'));
 exception when others then null; end $$;
+
+-- ============ 0012_rename_stakeza.sql ============
+-- The site is Stakeza now. The name reached the database in two places: the
+-- house league custom matches are filed under, and the account name shown on
+-- the manual deposit screen. Both are carried over here so a running
+-- deployment says the new name without anyone editing a row by hand.
+
+alter table matches alter column league set default 'Stakeza Special';
+
+update matches set league = 'Stakeza Special' where league = 'Betlixx Special';
+
+update app_settings
+   set value = 'Stakeza Ghana', updated_at = now()
+ where key = 'deposit_account_name' and value = 'Betlixx Ghana';
 
