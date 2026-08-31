@@ -43,6 +43,26 @@ export function hasCelebrated(code: string): boolean {
   return readSeen().includes(code);
 }
 
+/**
+ * Confetti, fixed rather than random: a list generated at render time would not
+ * survive hydration, and a win screen that flickers on load is worse than one
+ * with a repeating pattern nobody will study.
+ */
+const CONFETTI = [
+  { left: 6, delay: 0, dur: 3.2, drift: 30, color: "#9FF611" },
+  { left: 14, delay: 0.9, dur: 4.1, drift: -24, color: "#FFD24A" },
+  { left: 22, delay: 0.35, dur: 3.6, drift: 18, color: "#FFFFFF" },
+  { left: 31, delay: 1.6, dur: 4.4, drift: -34, color: "#9FF611" },
+  { left: 39, delay: 0.15, dur: 3.9, drift: 26, color: "#F7B927" },
+  { left: 47, delay: 2.1, dur: 3.4, drift: -16, color: "#9FF611" },
+  { left: 55, delay: 0.6, dur: 4.6, drift: 34, color: "#FFFFFF" },
+  { left: 63, delay: 1.2, dur: 3.3, drift: -28, color: "#FFD24A" },
+  { left: 71, delay: 2.4, dur: 4.0, drift: 20, color: "#9FF611" },
+  { left: 79, delay: 0.45, dur: 3.7, drift: -22, color: "#F7B927" },
+  { left: 87, delay: 1.85, dur: 4.3, drift: 30, color: "#FFFFFF" },
+  { left: 94, delay: 1.05, dur: 3.5, drift: -18, color: "#9FF611" },
+];
+
 export function WinCelebration({
   code,
   amount,
@@ -94,6 +114,23 @@ export function WinCelebration({
     >
       <button className="absolute inset-0 bg-black/85" onClick={onClose} aria-label="Close" />
 
+      {/* Falling colour. Decoration only, so it never eats a tap. */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        {CONFETTI.map((c, i) => (
+          <span
+            key={i}
+            className="confetti-piece"
+            style={{
+              left: `${c.left}%`,
+              background: c.color,
+              animationDelay: `${c.delay}s`,
+              animationDuration: `${c.dur}s`,
+              ["--drift" as string]: `${c.drift}px`,
+            }}
+          />
+        ))}
+      </div>
+
       <button
         onClick={onClose}
         aria-label="Close"
@@ -103,19 +140,27 @@ export function WinCelebration({
       </button>
 
       <div className="relative flex w-full max-w-sm flex-col items-center">
-        <p className="text-[40px] font-black leading-none tracking-tight text-white">YOU WON</p>
-        <p className="mt-2 text-[30px] font-black leading-none text-[var(--accent)]">
+        <p className="win-line text-[40px] font-black leading-none tracking-tight text-white">YOU WON</p>
+        <p
+          className="win-line mt-2 text-[30px] font-black leading-none text-[var(--accent)]"
+          style={{ animationDelay: "0.12s" }}
+        >
           {formatMoney(amount, currency)}
         </p>
 
-        <Trophy size={230} className="mt-2 drop-shadow-[0_0_28px_rgba(159,246,17,0.35)]" />
+        {/* Two wrappers: one throws the cup up, the other keeps it breathing. */}
+        <div className="win-cup mt-2">
+          <div className="win-cup-float">
+            <Trophy animated size={230} className="drop-shadow-[0_0_28px_rgba(159,246,17,0.35)]" />
+          </div>
+        </div>
 
-        <p className="-mt-2 text-[13px] text-white/70">
+        <p className="win-line -mt-2 text-[13px] text-white/70" style={{ animationDelay: "0.75s" }}>
           Ticket:{" "}
           <span className="font-bold tracking-wider text-[var(--accent)]">{code}</span>
         </p>
 
-        <div className="mt-6 grid w-full grid-cols-2 gap-3">
+        <div className="win-line mt-6 grid w-full grid-cols-2 gap-3" style={{ animationDelay: "0.85s" }}>
           <Link
             href={`/my-bets/${code}`}
             onClick={onClose}

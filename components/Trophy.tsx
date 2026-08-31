@@ -9,7 +9,16 @@
  *
  * Transparent ground, so it sits over any backdrop.
  */
-export function Trophy({ size = 220, className }: { size?: number; className?: string }) {
+export function Trophy({
+  size = 220,
+  className,
+  animated = false,
+}: {
+  size?: number;
+  className?: string;
+  /** Turns on the moving parts: the turning burst, the twinkle, the gleam. */
+  animated?: boolean;
+}) {
   return (
     <svg
       width={size}
@@ -47,6 +56,10 @@ export function Trophy({ size = 220, className }: { size?: number; className?: s
           <stop offset="1" stopColor="#1A1830" />
         </linearGradient>
 
+        <clipPath id="bowlClip">
+          <path d="M62 58C62 110 76 146 120 156C164 146 178 110 178 58Z" />
+        </clipPath>
+
         <radialGradient id="halo" cx="0.5" cy="0.42" r="0.52">
           <stop offset="0" stopColor="#FFD24A" stopOpacity=".45" />
           <stop offset="0.5" stopColor="#9FF611" stopOpacity=".14" />
@@ -58,7 +71,13 @@ export function Trophy({ size = 220, className }: { size?: number; className?: s
       <circle cx="120" cy="102" r="106" fill="url(#halo)" />
 
       {/* Burst. Nothing crosses the handle openings. */}
-      <g stroke="#9FF611" strokeOpacity=".6" strokeWidth="3" strokeLinecap="round">
+      <g
+        className={animated ? "cup-rays" : undefined}
+        stroke="#9FF611"
+        strokeOpacity=".6"
+        strokeWidth="3"
+        strokeLinecap="round"
+      >
         <path d="M120 10v16" />
         <path d="M50 34l12 12M190 34l-12 12M46 158l12-10M194 158l-12-10" />
       </g>
@@ -82,6 +101,13 @@ export function Trophy({ size = 220, className }: { size?: number; className?: s
       {/* Bowl */}
       <path d="M62 58C62 110 76 146 120 156C164 146 178 110 178 58Z" fill="url(#gold)" />
       <path d="M62 58C62 110 76 146 120 156C164 146 178 110 178 58Z" fill="url(#sheen)" />
+
+      {/* A sweep of light across the bowl */}
+      {animated && (
+        <g clipPath="url(#bowlClip)">
+          <rect className="cup-gleam" x="44" y="44" width="24" height="128" fill="#FFFFFF" opacity=".6" />
+        </g>
+      )}
 
       {/* Rim */}
       <rect x="54" y="42" width="132" height="18" rx="9" fill="url(#goldRim)" />
@@ -111,10 +137,10 @@ export function Trophy({ size = 220, className }: { size?: number; className?: s
       <rect x="70" y="194" width="100" height="6" rx="3" fill="url(#gold)" />
 
       {/* Sparkles */}
-      <g fill="#FFFFFF">
-        <path d="M198 46l3.4 7.6 7.6 3.4-7.6 3.4-3.4 7.6-3.4-7.6-7.6-3.4 7.6-3.4z" opacity=".9" />
-        <path d="M42 170l2.4 5.4 5.4 2.4-5.4 2.4-2.4 5.4-2.4-5.4-5.4-2.4 5.4-2.4z" opacity=".7" />
-        <path d="M168 22l1.8 4 4 1.8-4 1.8-1.8 4-1.8-4-4-1.8 4-1.8z" opacity=".6" />
+      <g fill="#FFFFFF" className={animated ? "cup-sparks" : undefined}>
+        <path className={animated ? "cup-spark" : undefined} d="M198 46l3.4 7.6 7.6 3.4-7.6 3.4-3.4 7.6-3.4-7.6-7.6-3.4 7.6-3.4z" opacity=".9" />
+        <path className={animated ? "cup-spark" : undefined} d="M42 170l2.4 5.4 5.4 2.4-5.4 2.4-2.4 5.4-2.4-5.4-5.4-2.4 5.4-2.4z" opacity=".7" />
+        <path className={animated ? "cup-spark" : undefined} d="M168 22l1.8 4 4 1.8-4 1.8-1.8 4-1.8-4-4-1.8 4-1.8z" opacity=".6" />
       </g>
     </svg>
   );

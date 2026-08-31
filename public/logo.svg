@@ -7,7 +7,7 @@
   </defs>
   <rect x="0" y="4" width="36" height="36" rx="9" fill="url(#stk)"/>
   <text x="18" y="31" text-anchor="middle" font-family="ui-sans-serif,system-ui,Segoe UI,Roboto,Arial,sans-serif" font-size="25" font-weight="800" fill="#10240A">S</text>
-  <text x="46" y="31" font-family="ui-sans-serif,system-ui,Segoe UI,Roboto,Arial,sans-serif" font-size="25" font-weight="800" letter-spacing="-0.6">
+  <text x="44" y="29" font-family="ui-sans-serif,system-ui,Segoe UI,Roboto,Arial,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.3">
     <tspan fill="#F2F1F8">Stake</tspan><tspan fill="#9FF611">za</tspan>
   </text>
 </svg>
