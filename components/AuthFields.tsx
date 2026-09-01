@@ -203,9 +203,11 @@ export function Check({
 /**
  * The full-width lime action the reference uses for Login and Register.
  *
- * Disabled is a different colour rather than a faded lime: lime at 40% over
- * this ground turns olive and keeps its dark ink, which reads as a broken
- * button rather than one waiting for the form to be filled in.
+ * It is lime in every state. A greyed or faded version of it over this ground
+ * turns into a dark slab that reads as a broken button, so an empty form is
+ * answered by the form telling the player what is missing, not by the button
+ * going out. The only time it changes is while a submission is in flight, and
+ * then it says so.
  */
 export function PrimaryButton({
   children,
@@ -214,7 +216,7 @@ export function PrimaryButton({
   return (
     <button
       {...props}
-      className="w-full rounded-[3px] bg-[var(--accent)] py-3.5 text-[16px] font-medium text-[var(--accent-ink)] transition-colors disabled:bg-[var(--surface-2)] disabled:text-[var(--text-muted)]"
+      className="w-full rounded-[3px] bg-[var(--accent)] py-3.5 text-[16px] font-medium text-[var(--accent-ink)] disabled:cursor-wait"
     >
       {children}
     </button>

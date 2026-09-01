@@ -27,6 +27,11 @@ function RegisterForm() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) return setError("Enter your name");
+    if (!phone.trim()) return setError("Enter your mobile number");
+    if (!password) return setError("Choose a password");
+    if (!agreed) return setError("Accept the terms to continue");
+
     setBusy(true);
     setError(null);
     try {
@@ -112,7 +117,7 @@ function RegisterForm() {
           )}
 
           <div className="pt-2">
-            <PrimaryButton type="submit" disabled={busy || !phone || !password || !name || !agreed}>
+            <PrimaryButton type="submit" disabled={busy}>
               {busy ? "Creating…" : "Register"}
             </PrimaryButton>
           </div>

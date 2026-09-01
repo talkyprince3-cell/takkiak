@@ -51,12 +51,14 @@ export default function ForgotPasswordPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
+              // The button stays lime, so the check lives here.
+              if (!phone.trim()) return;
               setSent(true);
             }}
             className="mt-6 space-y-4"
           >
             <PhoneField country={country} value={phone} onChange={setPhone} autoFocus />
-            <PrimaryButton type="submit" disabled={!phone}>
+            <PrimaryButton type="submit">
               Continue
             </PrimaryButton>
             <Link href="/login" className="block text-center text-[15px] font-medium text-[var(--accent)]">

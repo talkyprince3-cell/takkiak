@@ -22,6 +22,10 @@ function LoginForm() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!phone.trim() || !password) {
+      setError("Enter your number and password");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -68,7 +72,7 @@ function LoginForm() {
           )}
 
           <div className="pt-2">
-            <PrimaryButton type="submit" disabled={busy || !phone || !password}>
+            <PrimaryButton type="submit" disabled={busy}>
               {busy ? "Signing in…" : "Login"}
             </PrimaryButton>
           </div>
