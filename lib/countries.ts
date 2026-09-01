@@ -51,7 +51,7 @@ const BASE: Record<string, CountryConfig> = {
     // Ghana collects no KYC value at sign-up; identity is carried by the
     // mobile-money number, which is already name-verified by the network.
     kyc: [],
-    minFirstDeposit: 10,
+    minFirstDeposit: 200,
     minDeposit: 1,
     maxDeposit: 50000,
     verificationAmount: 300,
