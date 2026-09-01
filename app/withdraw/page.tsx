@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Page } from "@/components/Shell";
 import { useSession } from "@/lib/store";
 import { getCountry, formatMoney } from "@/lib/countries";
+import { VerifyGate } from "@/components/VerifyGate";
 
 export default function WithdrawPage() {
   const router = useRouter();
@@ -18,7 +19,9 @@ export default function WithdrawPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [progress, setProgress] = useState<{ label: string } | null>(null);
+  const [progress, setProgress] = useState<{ label: string; have: number; need: number } | null>(null);
+  const [gateFailed, setGateFailed] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
 
   const country = player ? getCountry(player.country_code) : getCountry("GH");
 
@@ -26,18 +29,48 @@ export default function WithdrawPage() {
     if (hydrated && !player) router.replace("/login");
   }, [hydrated, player, router]);
 
-  useEffect(() => {
-    if (!player) return;
-    fetch(`/api/me?userId=${player.id}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (!j) return;
-        setProgress(j.withdrawal.progress);
-        setPayoutNumber(j.user.payout_number ?? player.phone);
-        setPayoutBank(j.user.payout_bank ?? "");
-      })
-      .catch(() => {});
+  const fetchMe = useCallback(async () => {
+    if (!player) return null;
+    try {
+      const res = await fetch(`/api/me?userId=${player.id}`);
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
   }, [player]);
+
+  const apply = useCallback(
+    (j: {
+      withdrawal: { unlocked: boolean; failed?: string; progress: { label: string; have: number; need: number } };
+      user: { payout_number?: string | null; payout_bank?: string | null; balance?: number };
+    }) => {
+      setProgress(j.withdrawal.progress);
+      setGateFailed(j.withdrawal.unlocked ? null : (j.withdrawal.failed ?? null));
+      setPayoutNumber((n) => n || j.user.payout_number || player?.phone || "");
+      setPayoutBank((b) => b || j.user.payout_bank || "");
+      if (typeof j.user.balance === "number") setBalance(Number(j.user.balance));
+    },
+    [player, setBalance],
+  );
+
+  useEffect(() => {
+    let alive = true;
+    void fetchMe().then((j) => {
+      if (alive && j) apply(j);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [fetchMe, apply]);
+
+  /** The player says they have deposited: ask the server rather than assume. */
+  const recheck = () => {
+    setChecking(true);
+    void fetchMe().then((j) => {
+      if (j) apply(j);
+      setChecking(false);
+    });
+  };
 
   if (!player) return null;
 
@@ -71,6 +104,19 @@ export default function WithdrawPage() {
 
   return (
     <Page>
+      {/* The deposit gate is the one worth interrupting for: the others are
+          fixed on this page, this one is not. */}
+      {gateFailed === "deposits" && progress && (
+        <VerifyGate
+          amount={country.withdrawQualifyAmount}
+          currency={player.currency}
+          have={progress.have}
+          need={progress.need}
+          onRecheck={recheck}
+          checking={checking}
+        />
+      )}
+
       <div className="mx-auto max-w-md space-y-3">
         <h1 className="text-[18px] font-black">Withdraw</h1>
 
