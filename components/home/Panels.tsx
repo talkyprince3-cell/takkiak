@@ -105,17 +105,20 @@ export function LoadCodeWidget() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ticket, setTicket] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!code.trim()) return;
     setBusy(true);
     setError(null);
+    setTicket(null);
     try {
       const res = await fetch(`/api/bookings/${encodeURIComponent(code.trim().toUpperCase())}`);
       const json = await res.json();
       if (!res.ok) {
         setError(json.error ?? "That code was not found");
+        if (json.ticket) setTicket(json.ticket as string);
         return;
       }
       load(json.booking.selections as SlipLeg[]);
@@ -145,7 +148,19 @@ export function LoadCodeWidget() {
           {busy ? "…" : "Load Code"}
         </button>
       </form>
-      {error && <p className="mt-1.5 px-1 text-[11px] text-[var(--lose)]">{error}</p>}
+      {error && (
+        <p className="mt-1.5 px-1 text-[11px] text-[var(--lose)]">
+          {error}
+          {ticket && (
+            <>
+              {" "}
+              <Link href={`/my-bets/${ticket}`} className="font-bold text-[var(--accent)] underline">
+                Open it in My Bets
+              </Link>
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }

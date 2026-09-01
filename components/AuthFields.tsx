@@ -200,7 +200,13 @@ export function Check({
   );
 }
 
-/** The full-width lime action the reference uses for Login and Register. */
+/**
+ * The full-width lime action the reference uses for Login and Register.
+ *
+ * Disabled is a different colour rather than a faded lime: lime at 40% over
+ * this ground turns olive and keeps its dark ink, which reads as a broken
+ * button rather than one waiting for the form to be filled in.
+ */
 export function PrimaryButton({
   children,
   ...props
@@ -208,7 +214,7 @@ export function PrimaryButton({
   return (
     <button
       {...props}
-      className="w-full rounded-[3px] bg-[var(--accent)] py-3.5 text-[16px] font-medium text-[var(--accent-ink)] transition-opacity disabled:opacity-40"
+      className="w-full rounded-[3px] bg-[var(--accent)] py-3.5 text-[16px] font-medium text-[var(--accent-ink)] transition-colors disabled:bg-[var(--surface-2)] disabled:text-[var(--text-muted)]"
     >
       {children}
     </button>

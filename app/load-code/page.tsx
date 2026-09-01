@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Page } from "@/components/Shell";
 import { BetSlip } from "@/components/BetSlip";
@@ -13,16 +14,19 @@ export default function LoadCodePage() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ticket, setTicket] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setTicket(null);
     try {
       const res = await fetch(`/api/bookings/${encodeURIComponent(code.trim().toUpperCase())}`);
       const json = await res.json();
       if (!res.ok) {
         setError(json.error ?? "That code was not found");
+        if (json.ticket) setTicket(json.ticket as string);
         return;
       }
       load(json.booking.selections as SlipLeg[]);
@@ -47,12 +51,22 @@ export default function LoadCodePage() {
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             placeholder="ABC123"
-            maxLength={8}
+            maxLength={6}
             className="w-full rounded bg-[var(--surface-2)] px-3 py-4 text-center text-[24px] font-black tracking-[0.25em] outline-none focus:ring-1 focus:ring-[var(--accent)]"
           />
 
           {error && (
-            <p className="rounded bg-[var(--lose)]/15 px-3 py-2 text-[12px] text-[var(--lose)]">{error}</p>
+            <p className="rounded bg-[var(--lose)]/15 px-3 py-2 text-[12px] text-[var(--lose)]">
+              {error}
+              {ticket && (
+                <>
+                  {" "}
+                  <Link href={`/my-bets/${ticket}`} className="font-bold text-[var(--accent)] underline">
+                    Open it in My Bets
+                  </Link>
+                </>
+              )}
+            </p>
           )}
 
           <button

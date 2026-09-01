@@ -14,7 +14,24 @@ export async function GET(_req: Request, ctx: { params: Promise<{ code: string }
     .eq("code", code.toUpperCase())
     .maybeSingle();
 
-  if (!booking) return NextResponse.json({ error: "That booking code was not found" }, { status: 404 });
+  if (!booking) {
+    // A ticket code is eight characters beginning with B, a booking code is
+    // six, and on a phone they look alike enough that players paste one into
+    // the other. Saying which one this is beats saying "not found".
+    const { data: bet } = await supabase
+      .from("bets")
+      .select("code")
+      .eq("code", code.toUpperCase())
+      .maybeSingle();
+
+    if (bet) {
+      return NextResponse.json(
+        { error: "That is a ticket code, not a booking code.", ticket: bet.code },
+        { status: 404 },
+      );
+    }
+    return NextResponse.json({ error: "That booking code was not found" }, { status: 404 });
+  }
 
   if (booking.expires_at && new Date(booking.expires_at) < new Date()) {
     return NextResponse.json({ error: "That booking code has expired" }, { status: 410 });

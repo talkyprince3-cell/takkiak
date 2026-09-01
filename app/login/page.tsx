@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "@/lib/store";
 import { getCountry, normalisePhone } from "@/lib/countries";
-import { CountryBar, PhoneField, PasswordField, Check, PrimaryButton } from "@/components/AuthFields";
+import { CountryBar, PhoneField, PasswordField, PrimaryButton } from "@/components/AuthFields";
 
 function LoginForm() {
   const router = useRouter();
@@ -15,8 +15,6 @@ function LoginForm() {
   const [countryCode, setCountryCode] = useState("GH");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(false);
-  const [keepSignedIn, setKeepSignedIn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,11 +60,6 @@ function LoginForm() {
         <form onSubmit={submit} className="mt-8 space-y-4">
           <PhoneField country={country} value={phone} onChange={setPhone} autoFocus />
           <PasswordField value={password} onChange={setPassword} />
-
-          <div className="flex items-center justify-between gap-3 pt-1">
-            <Check checked={remember} onChange={setRemember} label="Remember me" />
-            <Check checked={keepSignedIn} onChange={setKeepSignedIn} label="Keep me signed in" />
-          </div>
 
           {error && (
             <p className="rounded-[3px] bg-[var(--lose-bg)] px-3 py-2.5 text-[13px] text-[var(--lose)]">
