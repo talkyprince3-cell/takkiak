@@ -110,7 +110,7 @@ export default function MyBetsPage() {
             No tickets here yet.
           </p>
         ) : (
-          shown.map((t) => <TicketCard key={t.id} ticket={t} />)
+          shown.map((t) => <TicketCard key={t.id} ticket={t} onCelebrate={setCelebrating} />)
         )}
       </div>
 
@@ -126,13 +126,46 @@ export default function MyBetsPage() {
   );
 }
 
-function TicketCard({ ticket }: { ticket: Ticket }) {
+/**
+ * A won ticket is worth stopping on. Tapping one raises the celebration —
+ * the cup, the amount, the code — and the modal's own Details button carries
+ * on to the ticket. Every other status goes straight there, since there is
+ * nothing to celebrate on the way.
+ */
+function CardShell({
+  ticket,
+  onCelebrate,
+  children,
+}: {
+  ticket: Ticket;
+  onCelebrate: (t: Ticket) => void;
+  children: React.ReactNode;
+}) {
+  if (ticket.status === "won") {
+    return (
+      <button
+        onClick={() => onCelebrate(ticket)}
+        className="block w-full px-4 py-3 text-left"
+        aria-label={`You won on ticket ${ticket.code}`}
+      >
+        {children}
+      </button>
+    );
+  }
+  return (
+    <Link href={`/my-bets/${ticket.code}`} className="block w-full px-4 py-3 text-left">
+      {children}
+    </Link>
+  );
+}
+
+function TicketCard({ ticket, onCelebrate }: { ticket: Ticket; onCelebrate: (t: Ticket) => void }) {
   const [open, setOpen] = useState(false);
   const style = STATUS_STYLE[ticket.status] ?? STATUS_STYLE.pending;
 
   return (
     <article className="overflow-hidden rounded bg-[var(--bg-elevated)]">
-      <Link href={`/my-bets/${ticket.code}`} className="block w-full px-4 py-3 text-left">
+      <CardShell ticket={ticket} onCelebrate={onCelebrate}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[13px] font-black tracking-wider text-[var(--accent)]">{ticket.code}</p>
@@ -167,7 +200,7 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
             </dd>
           </div>
         </dl>
-      </Link>
+      </CardShell>
 
       <button
         onClick={() => setOpen((o) => !o)}
