@@ -153,37 +153,6 @@ body {
 }
 .win-cup-float { animation: cup-float 3.4s ease-in-out 0.8s infinite; }
 
-/* The burst turns slowly behind the cup rather than sitting still. */
-@keyframes ray-turn {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-.cup-rays {
-  animation: ray-turn 18s linear infinite;
-  transform-origin: 120px 102px;
-  transform-box: view-box;
-}
-
-@keyframes spark-twinkle {
-  0%, 100% { opacity: 0.15; transform: scale(0.7); }
-  50%      { opacity: 1; transform: scale(1.15); }
-}
-.cup-spark {
-  animation: spark-twinkle 2.2s ease-in-out infinite;
-  transform-box: fill-box;
-  transform-origin: center;
-}
-.cup-spark:nth-of-type(2) { animation-delay: 0.7s; animation-duration: 2.8s; }
-.cup-spark:nth-of-type(3) { animation-delay: 1.3s; animation-duration: 1.9s; }
-
-/* A single sweep of light across the bowl, once the cup has landed. */
-@keyframes cup-gleam {
-  0%   { transform: translateX(-140px) skewX(-18deg); opacity: 0; }
-  40%  { opacity: 0.75; }
-  100% { transform: translateX(150px) skewX(-18deg); opacity: 0; }
-}
-.cup-gleam { animation: cup-gleam 1.5s ease-in 0.85s 2; }
-
 @keyframes win-line-in {
   from { transform: translateY(14px); opacity: 0; }
   to   { transform: translateY(0); opacity: 1; }
@@ -209,9 +178,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .win-cup,
   .win-cup-float,
-  .cup-rays,
-  .cup-spark,
-  .cup-gleam,
   .win-line,
   .confetti-piece {
     animation: none;
