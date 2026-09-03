@@ -89,6 +89,9 @@ export function MatchList({
       const today = new Date(now).toDateString();
       return matches.filter((m) => new Date(m.kickoff).toDateString() === today);
     }
+    // "Upcoming" means what it says: a match already in play belongs to Live,
+    // and showing it in both is how a six-row section ends up all live.
+    if (tab === "upcoming") return matches.filter((m) => !m.isLive);
     return matches;
   }, [matches, tab, now]);
 

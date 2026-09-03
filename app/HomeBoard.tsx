@@ -201,8 +201,8 @@ export function HomeBoard() {
         </h2>
         <div className="px-2 md:px-5">
           {/* The home page is a shop window. The full board is one tap away. */}
-          <MatchList tab="football" matches={homeFeed} limit={UPCOMING_ON_HOME} />
-          <SeeAll href="/?tab=football" label="See all upcoming matches" />
+          <MatchList tab="upcoming" matches={homeFeed} limit={UPCOMING_ON_HOME} />
+          <SeeAll href="/?tab=upcoming" label="See all upcoming matches" />
         </div>
       </section>
 
