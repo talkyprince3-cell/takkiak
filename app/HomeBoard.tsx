@@ -14,8 +14,9 @@ import type { FeedMatch } from "@/lib/fixtures";
 
 const POLL_MS = 30_000;
 
-/** How many upcoming matches the home page shows before "See all". */
+/** How many matches each home section shows before "See all". */
 const UPCOMING_ON_HOME = 12;
+const LIVE_ON_HOME = 6;
 
 /** The features section tabs, mirroring the reference home. */
 const FEATURE_TABS = [
@@ -57,6 +58,16 @@ export function HomeBoard() {
       clearInterval(timer);
     };
   }, []);
+
+  /**
+   * The home page shows a few matches, so they had better be the right few.
+   * Boosted prices go first; the custom-match ordering is `MatchList`'s own
+   * job and survives this, because both passes are stable.
+   */
+  const homeFeed = useMemo(() => {
+    if (!feed) return feed;
+    return [...feed.filter((m) => m.bestOdds), ...feed.filter((m) => !m.bestOdds)];
+  }, [feed]);
 
   const liveCount = useMemo(() => (feed ?? []).filter((m) => m.isLive).length, [feed]);
 
@@ -151,9 +162,19 @@ export function HomeBoard() {
               {liveCount}
             </span>
           )}
+          {liveCount > LIVE_ON_HOME && (
+            <Link href="/?tab=live" className="ml-auto text-[12px] font-bold text-[var(--accent)]">
+              See all
+            </Link>
+          )}
         </div>
         <div className="px-2 md:px-5">
-          <MatchList tab="live" matches={feed} emptyLabel="No matches in play right now." />
+          <MatchList
+            tab="live"
+            matches={homeFeed}
+            limit={LIVE_ON_HOME}
+            emptyLabel="No matches in play right now."
+          />
         </div>
       </section>
 
@@ -166,7 +187,7 @@ export function HomeBoard() {
         </div>
         <div className="px-2 md:px-5">
           {/* The home page is a shop window. The full board is one tap away. */}
-          <MatchList tab="football" matches={feed} limit={UPCOMING_ON_HOME} />
+          <MatchList tab="football" matches={homeFeed} limit={UPCOMING_ON_HOME} />
         </div>
       </section>
 
