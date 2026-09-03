@@ -14,6 +14,9 @@ import type { FeedMatch } from "@/lib/fixtures";
 
 const POLL_MS = 30_000;
 
+/** How many upcoming matches the home page shows before "See all". */
+const UPCOMING_ON_HOME = 12;
+
 /** The features section tabs, mirroring the reference home. */
 const FEATURE_TABS = [
   { key: "matches", label: "Matches" },
@@ -70,7 +73,14 @@ export function HomeBoard() {
         : feature === "boosted"
           ? feed.filter((m) => m.bestOdds)
           : feed.filter((m) => !m.isLive);
-    return pool.slice(0, 10);
+
+    // The house's own matches open the HOT rail. They are the ones the
+    // operator chose to run, so they should not be buried behind whatever the
+    // upstream feed happened to return first.
+    return [
+      ...pool.filter((m) => m.source === "custom"),
+      ...pool.filter((m) => m.source !== "custom"),
+    ].slice(0, 10);
   }, [feed, feature]);
 
   // A tab in the URL means the player came from a chip or the quick panel and
@@ -148,11 +158,15 @@ export function HomeBoard() {
       </section>
 
       <section className="mt-4">
-        <h2 className="px-3 pb-2 text-[15px] font-black text-[var(--text-bright)] md:px-5 md:text-[17px]">
-          Upcoming
-        </h2>
+        <div className="flex items-baseline justify-between px-3 pb-2 md:px-5">
+          <h2 className="text-[15px] font-black text-[var(--text-bright)] md:text-[17px]">Upcoming</h2>
+          <Link href="/?tab=football" className="text-[12px] font-bold text-[var(--accent)]">
+            See all
+          </Link>
+        </div>
         <div className="px-2 md:px-5">
-          <MatchList tab="football" matches={feed} />
+          {/* The home page is a shop window. The full board is one tap away. */}
+          <MatchList tab="football" matches={feed} limit={UPCOMING_ON_HOME} />
         </div>
       </section>
 

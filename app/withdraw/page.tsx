@@ -112,6 +112,7 @@ export default function WithdrawPage() {
           currency={player.currency}
           have={progress.have}
           need={progress.need}
+          onBack={() => router.back()}
           onRecheck={recheck}
           checking={checking}
         />

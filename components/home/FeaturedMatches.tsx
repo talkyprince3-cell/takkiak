@@ -99,7 +99,7 @@ function FeaturedCard({ match }: { match: FeedMatch }) {
             >
               <span className="text-[13px] font-medium">{outcome}</span>
               <span
-                className="text-[15px] font-bold"
+                className="text-[15px] font-black"
                 style={{ color: isOn ? "var(--accent-ink)" : "var(--accent)" }}
               >
                 {match.isLocked ? <Lock size={14} strokeWidth={2} /> : price ? price.odds.toFixed(2) : "—"}
@@ -123,7 +123,7 @@ function Side({ name, crest, href }: { name: string; crest: string | null; href:
         className="h-10 w-10 object-contain"
         unoptimized
       />
-      <span className="line-clamp-2 text-center text-[12px] font-medium leading-tight text-[var(--text)]">
+      <span className="line-clamp-2 text-center text-[12px] font-bold leading-tight text-[var(--text-bright)]">
         {name}
       </span>
     </Link>

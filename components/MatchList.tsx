@@ -27,11 +27,14 @@ export function MatchList({
   tab = "football",
   matches: provided,
   emptyLabel = "No matches here right now. Check back shortly.",
+  limit,
 }: {
   tab?: string;
   /** Pass a feed to render from it; omit and the list polls for its own. */
   matches?: FeedMatch[] | null;
   emptyLabel?: string;
+  /** Cap the rows shown. The home page wants a taste, not the whole board. */
+  limit?: number;
 }) {
   const [fetched, setFetched] = useState<FeedMatch[] | null>(null);
   const [market, setMarket] = useState("1x2");
@@ -91,14 +94,24 @@ export function MatchList({
 
   const grouped = useMemo(() => {
     if (!filtered) return [];
+
+    // The house's own matches come first, then whatever the feed brought, and
+    // only then is the list cut to size — so a limit never costs a custom game
+    // its place.
+    const ordered = [
+      ...filtered.filter((m) => m.source === "custom"),
+      ...filtered.filter((m) => m.source !== "custom"),
+    ];
+    const shown = limit ? ordered.slice(0, limit) : ordered;
+
     const map = new Map<string, FeedMatch[]>();
-    for (const m of filtered) {
+    for (const m of shown) {
       const list = map.get(m.league) ?? [];
       list.push(m);
       map.set(m.league, list);
     }
     return [...map.entries()];
-  }, [filtered]);
+  }, [filtered, limit]);
 
   const activeTab = MARKET_TABS.find((t) => t.key === market) ?? MARKET_TABS[0];
 
@@ -258,11 +271,11 @@ function MatchRow({
               key={outcome}
               disabled={disabled}
               onClick={() => price && pick(outcome, price.odds, price.label)}
-              className="h-[34px] w-[54px] rounded-[3px] text-[12px] font-bold transition-colors disabled:opacity-35 md:h-[40px] md:w-[92px] md:text-[14px]"
+              className="h-[34px] w-[54px] rounded-[3px] text-[12px] font-black transition-colors disabled:opacity-35 md:h-[40px] md:w-[92px] md:text-[14px]"
               style={
                 isOn
                   ? { background: "var(--accent)", color: "var(--accent-ink)" }
-                  : { background: "var(--odds-btn)", color: "var(--text)" }
+                  : { background: "var(--odds-btn)", color: "var(--accent)" }
               }
               aria-label={`${match.homeTeam} v ${match.awayTeam}, ${outcome}, ${price?.odds ?? "unavailable"}`}
             >
@@ -328,7 +341,7 @@ function TeamLine({
         className="h-4 w-4 shrink-0 rounded-full object-contain"
         unoptimized
       />
-      <span className="truncate text-[13px] font-medium text-[var(--text)] md:text-[14px]">{name}</span>
+      <span className="truncate text-[13px] font-bold text-[var(--text-bright)] md:text-[14px]">{name}</span>
       {score != null && (
         <span className="ml-auto pl-2 text-[13px] font-bold text-[var(--accent)]">{score}</span>
       )}
