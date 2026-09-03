@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { ChevronRight } from "lucide-react";
 import { Page } from "@/components/Shell";
 import { MatchList } from "@/components/MatchList";
 import { BetSlip } from "@/components/BetSlip";
@@ -15,8 +16,8 @@ import type { FeedMatch } from "@/lib/fixtures";
 const POLL_MS = 30_000;
 
 /** How many matches each home section shows before "See all". */
-const UPCOMING_ON_HOME = 12;
-const LIVE_ON_HOME = 6;
+const UPCOMING_ON_HOME = 6;
+const LIVE_ON_HOME = 4;
 
 /** The features section tabs, mirroring the reference home. */
 const FEATURE_TABS = [
@@ -31,6 +32,24 @@ const FOOTER_LINKS = [
   { label: "Best Odds", href: "/?tab=boosted" },
   { label: "Load Code", href: "/load-code" },
 ];
+
+/**
+ * The way out of a shortened section.
+ *
+ * A word in the corner of a heading is easy to miss on a phone; this is a bar
+ * the width of the list it ends, so the tap target is the whole thing.
+ */
+function SeeAll({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="mt-2 flex items-center justify-center gap-1 rounded bg-[var(--bg-elevated)] py-3 text-[13px] font-bold text-[var(--accent)]"
+    >
+      {label}
+      <ChevronRight size={15} strokeWidth={2.5} />
+    </Link>
+  );
+}
 
 export function HomeBoard() {
   const tab = useSearchParams().get("tab");
@@ -162,11 +181,6 @@ export function HomeBoard() {
               {liveCount}
             </span>
           )}
-          {liveCount > LIVE_ON_HOME && (
-            <Link href="/?tab=live" className="ml-auto text-[12px] font-bold text-[var(--accent)]">
-              See all
-            </Link>
-          )}
         </div>
         <div className="px-2 md:px-5">
           <MatchList
@@ -175,19 +189,20 @@ export function HomeBoard() {
             limit={LIVE_ON_HOME}
             emptyLabel="No matches in play right now."
           />
+          {liveCount > LIVE_ON_HOME && (
+            <SeeAll href="/?tab=live" label={`See all ${liveCount} live matches`} />
+          )}
         </div>
       </section>
 
       <section className="mt-4">
-        <div className="flex items-baseline justify-between px-3 pb-2 md:px-5">
-          <h2 className="text-[15px] font-black text-[var(--text-bright)] md:text-[17px]">Upcoming</h2>
-          <Link href="/?tab=football" className="text-[12px] font-bold text-[var(--accent)]">
-            See all
-          </Link>
-        </div>
+        <h2 className="px-3 pb-2 text-[15px] font-black text-[var(--text-bright)] md:px-5 md:text-[17px]">
+          Upcoming
+        </h2>
         <div className="px-2 md:px-5">
           {/* The home page is a shop window. The full board is one tap away. */}
           <MatchList tab="football" matches={homeFeed} limit={UPCOMING_ON_HOME} />
+          <SeeAll href="/?tab=football" label="See all upcoming matches" />
         </div>
       </section>
 
