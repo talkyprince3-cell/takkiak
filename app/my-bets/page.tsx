@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ChevronRight } from "lucide-react";
 import { Page } from "@/components/Shell";
 import { useSession } from "@/lib/store";
 import { formatMoney } from "@/lib/countries";
@@ -160,7 +161,6 @@ function CardShell({
 }
 
 function TicketCard({ ticket, onCelebrate }: { ticket: Ticket; onCelebrate: (t: Ticket) => void }) {
-  const [open, setOpen] = useState(false);
   const style = STATUS_STYLE[ticket.status] ?? STATUS_STYLE.pending;
 
   return (
@@ -202,46 +202,17 @@ function TicketCard({ ticket, onCelebrate }: { ticket: Ticket; onCelebrate: (t: 
         </dl>
       </CardShell>
 
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-full border-t border-[var(--line)] py-2 text-[11px] font-semibold text-[var(--text-muted)]"
+      {/* The legs used to unfold here. The ticket page shows the same legs
+          with the match, the market and the settled score, so the row goes
+          there rather than half-answering the question in place. */}
+      <Link
+        href={`/my-bets/${ticket.code}`}
+        className="flex w-full items-center justify-center gap-1 border-t border-[var(--line)] py-2.5 text-[12px] font-bold text-[var(--accent)]"
       >
-        {open ? "Hide legs" : `Show ${ticket.selections.length} leg${ticket.selections.length === 1 ? "" : "s"}`}
-      </button>
+        View bet details
+        <ChevronRight size={14} strokeWidth={2.5} />
+      </Link>
 
-      {open && (
-        <ul className="divide-y divide-[var(--line)] border-t border-[var(--line)]">
-          {ticket.selections.map((leg, i) => (
-            <li key={i} className="flex items-center gap-2 px-4 py-2.5">
-              <span
-                className="h-1.5 w-1.5 shrink-0 rounded-full"
-                style={{
-                  background:
-                    leg.result === "won"
-                      ? "var(--win)"
-                      : leg.result === "lost"
-                        ? "var(--lose)"
-                        : "var(--pending)",
-                }}
-              />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[12px] font-semibold">
-                  {leg.home_team} v {leg.away_team}
-                </p>
-                <p className="text-[11px] text-[var(--text-muted)]">
-                  {leg.market.toUpperCase()} · {leg.outcome}
-                  {leg.final_home != null && leg.final_away != null && (
-                    <span className="ml-1 text-[var(--text-faint)]">
-                      (ended {leg.final_home}-{leg.final_away})
-                    </span>
-                  )}
-                </p>
-              </div>
-              <span className="text-[12px] font-bold">{Number(leg.odds).toFixed(2)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
     </article>
   );
 }
