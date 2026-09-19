@@ -11,7 +11,7 @@ import {
 import { buildMarkets } from "./markets";
 import { matchClock, scoreFromTimeline } from "./clock";
 import { deriveMarkets, driftOdds, applyBoost, type Market } from "./odds";
-import { correctScoreMarket, goalCountMarkets } from "./scoreline";
+import { correctScoreMarket, goalCountMarkets, teamMarkets } from "./scoreline";
 
 /**
  * The public fixture feed.
@@ -173,6 +173,23 @@ async function loadUpstream(): Promise<FeedMatch[]> {
   return out;
 }
 
+/**
+ * Everything derivable from a 1X2 price.
+ *
+ * The board only needs the headline markets, so the feed carries the short set
+ * and this is built on the details page, where a player has actually asked to
+ * see a match. Every price in it is fitted to the same 1X2, so the markets
+ * agree with one another.
+ */
+export function fullDerivedMarkets(home: number, draw: number, away: number): Market[] {
+  return [
+    ...deriveMarkets(home, draw, away),
+    ...teamMarkets(home, draw, away),
+    ...goalCountMarkets(home, draw, away),
+    correctScoreMarket(home, draw, away),
+  ];
+}
+
 async function loadCustom(): Promise<FeedMatch[]> {
   const supabase = db();
   if (!supabase) return []; // Degrade to upstream only.
@@ -233,11 +250,7 @@ async function loadCustom(): Promise<FeedMatch[]> {
       bestOdds: row.best_odds,
       // Operator matches carry the scoreline markets too, fitted to the same
       // 1X2 price so every market on the card agrees with the others.
-      markets: [
-        ...deriveMarkets(boosted.home, boosted.draw, boosted.away),
-        ...goalCountMarkets(boosted.home, boosted.draw, boosted.away),
-        correctScoreMarket(boosted.home, boosted.draw, boosted.away),
-      ],
+      markets: fullDerivedMarkets(boosted.home, boosted.draw, boosted.away),
     });
   }
 
@@ -277,9 +290,16 @@ export async function getMatchDetail(id: string): Promise<FeedMatch | null> {
   const bookmakers = await fetchFixtureOdds(id);
   const full = buildMarkets(bookmakers);
 
-  // Upstream prices nothing for plenty of smaller fixtures. Fall back to the
-  // derived markets rather than showing an empty board.
-  if (full.length < 2) return match;
+  // Upstream prices nothing for plenty of smaller fixtures — a Kenyan league
+  // match may carry no book at all. Those fell back to the six headline
+  // markets and stopped there, with no correct score anywhere on the page.
+  // They get the whole derived board instead.
+  if (full.length < 2) {
+    const headline = match.markets.find((m) => m.key === "1x2");
+    const [h, d, a] = (headline?.prices ?? []).map((p) => p.odds);
+    if (!h || !d || !a) return match;
+    return { ...match, markets: fullDerivedMarkets(h, d, a) };
+  }
 
   // Keep the derived 1X2 if upstream did not price one, so the board and the
   // details page never disagree about the headline market.

@@ -11,7 +11,9 @@ import { isMinorCompetition } from "../lib/api-football";
 import { classifyEvent } from "../lib/tracker";
 import { normalisePhone, maskPhoneTail } from "../lib/countries";
 import { cashoutOffer, CASHOUT_MARGIN, type CashoutLeg } from "../lib/cashout";
-import { correctScoreMarket, goalCountMarkets, ratesFromOdds } from "../lib/scoreline";
+import { correctScoreMarket, goalCountMarkets, ratesFromOdds, teamMarkets } from "../lib/scoreline";
+import { judge, canJudge } from "../lib/judge";
+import type { MatchResult } from "../lib/results";
 import { standing, maskPhone, TIERS } from "../lib/tiers";
 import {
   bonusFor,
@@ -78,7 +80,7 @@ console.log("\nScripted goal timeline");
 console.log("\nDerived markets");
 {
   const markets = deriveMarkets(2.0, 3.4, 3.8);
-  check("every market is priced", markets.length === 6);
+  check("every market is priced", markets.length === 7);
   check("1X2 passes through unchanged",
     markets[0].prices.map((p) => p.odds).join(",") === "2,3.4,3.8");
 
@@ -509,6 +511,54 @@ console.log("Match tracker event classification");
   check("a substitution is a sub", classifyEvent("subst", "Substitution 1") === "sub");
   check("a VAR check is var", classifyEvent("Var", "Goal cancelled") === "var");
   check("anything unknown falls back to other", classifyEvent("Whatever", "") === "other");
+}
+
+console.log("\nDerived markets settle themselves");
+{
+  const ft = (home: number, away: number): MatchResult => ({
+    home,
+    away,
+    htHome: null,
+    htAway: null,
+    cornersHome: null,
+    cornersAway: null,
+    finished: true,
+  });
+
+  // Every market the details page can show must be judgeable, or a ticket
+  // struck on it sits pending for ever.
+  const derived = [
+    ...deriveMarkets(2.0, 3.4, 3.8),
+    ...teamMarkets(2.0, 3.4, 3.8),
+    ...goalCountMarkets(2.0, 3.4, 3.8),
+    correctScoreMarket(2.0, 3.4, 3.8),
+  ];
+  const unjudged = derived.filter((m) => !canJudge(m.key)).map((m) => m.key);
+  check("every derived market has a judge", unjudged.length === 0, unjudged.join(","));
+
+  check("double chance 1X wins a draw", judge("dc", "1X", ft(1, 1)) === true);
+  check("double chance 1X loses an away win", judge("dc", "1X", ft(0, 1)) === false);
+  check("draw no bet home wins", judge("dnb", "DNB1", ft(2, 0)) === true);
+  check("draw no bet stays pending on a draw", judge("dnb", "DNB1", ft(1, 1)) === null);
+
+  check("over 2.5 wins at 2-1", judge("ou25", "O2.5", ft(2, 1)) === true);
+  check("under 2.5 loses at 2-1", judge("ou25", "U2.5", ft(2, 1)) === false);
+  check("over 1.5 loses at 1-0", judge("ou15", "O1.5", ft(1, 0)) === false);
+  check("under 3.5 wins at 2-1", judge("ou35", "U3.5", ft(2, 1)) === true);
+
+  check("GG wins at 2-2", judge("btts", "GG", ft(2, 2)) === true);
+  check("NG wins at 2-0", judge("btts", "NG", ft(2, 0)) === true);
+
+  check("home to score wins at 2-2", judge("hts", "Yes", ft(2, 2)) === true);
+  check("away clean sheet wins at 0-3", judge("csa", "Yes", ft(0, 3)) === true);
+  check("home clean sheet loses at 2-2", judge("csh", "Yes", ft(2, 2)) === false);
+
+  check("draw & GG wins at 2-2", judge("rbtts", "X/Yes", ft(2, 2)) === true);
+  check("draw & NG loses at 2-2", judge("rbtts", "X/No", ft(2, 2)) === false);
+
+  check("correct score 2:2 wins at 2-2", judge("cs", "2:2", ft(2, 2)) === true);
+  check("correct score 2:1 loses at 2-2", judge("cs", "2:1", ft(2, 2)) === false);
+  check("any other wins at 8-2", judge("cs", "Any Other", ft(8, 2)) === true);
 }
 
 console.log(failures === 0 ? "\nAll rule checks passed.\n" : `\n${failures} check(s) failed.\n`);

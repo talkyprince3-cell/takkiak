@@ -131,6 +131,30 @@ const JUDGES: Record<string, Judge> = {
     return n === null ? null : r.home + r.away === n;
   },
 
+  // --- Derived markets --------------------------------------------------
+  // These are the markets built locally from 1X2 for fixtures the book did not
+  // price. They have been on the board since the start with no judge behind
+  // them, which left every ticket struck on one of them sitting pending until
+  // an operator resolved it by hand. Their outcome vocabulary is our own
+  // ("DNB1", "O2.5", "GG"), so each is matched exactly rather than guessed at.
+  dc: (o, r) => doubleChance(o, resultOf(r.home, r.away)),
+  dnb: (o, r) => {
+    // A draw returns the stake, which this schema cannot express, so it waits
+    // for the operator rather than being called a loss.
+    if (r.home === r.away) return null;
+    const s = side(o.trim().replace(/^dnb/i, ""));
+    return s === null || s === "draw" ? null : s === resultOf(r.home, r.away);
+  },
+  ou15: (o, r) => derivedOverUnder(o, r.home + r.away),
+  ou25: (o, r) => derivedOverUnder(o, r.home + r.away),
+  ou35: (o, r) => derivedOverUnder(o, r.home + r.away),
+  btts: (o, r) => bothScored(o, r.home > 0 && r.away > 0),
+  hts: (o, r) => yesNo(o, r.home > 0),
+  ats: (o, r) => yesNo(o, r.away > 0),
+  csh: (o, r) => yesNo(o, r.away === 0),
+  csa: (o, r) => yesNo(o, r.home === 0),
+  rbtts: (o, r) => resultAndBtts(o, r),
+
   // --- Correct score ----------------------------------------------------
   af10: (o, r) => correctScore(o, r),
 
@@ -233,6 +257,27 @@ function correctScore(o: string, r: MatchResult): Verdict {
 
   const s = scoreline(o);
   return s === null ? null : s.h === r.home && s.a === r.away;
+}
+
+/**
+ * Our own over/under outcomes are written "O2.5" and "U2.5" — no space, no
+ * word — which the upstream parser deliberately will not match.
+ */
+function derivedOverUnder(o: string, total: number): Verdict {
+  const m = o.trim().match(/^([ou])\s*(\d+(?:\.\d+)?)$/i);
+  if (!m) return overUnder(total, o);
+  const l = Number(m[2]);
+  if (!Number.isFinite(l)) return null;
+  if (Number.isInteger(l) && total === l) return null; // push
+  return m[1].toLowerCase() === "o" ? total > l : total < l;
+}
+
+/** Ours are "GG" and "NG"; upstream says "Yes" and "No". */
+function bothScored(o: string, actual: boolean): Verdict {
+  const v = o.trim().toLowerCase();
+  if (v === "gg") return actual;
+  if (v === "ng") return !actual;
+  return yesNo(o, actual);
 }
 
 function sideJudge(o: string, actual: Side): Verdict {
