@@ -1,0 +1,249 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   PRIME BET token layer.
+
+   Values are taken from primebet.ltd's shipped stylesheet: near-black grounds
+   (#0f0f12 / #16161d), a dominant gold accent (#f5b51b) with black type on it,
+   red (#e50539) for live and losing states, and green (#00bb7f) for wins.
+   Chrome (header, league bars, bottom nav) is pure black; content sits on the
+   dark zinc grounds.
+
+   The one thing worth knowing when editing: an odds button is DARKER than the
+   row it sits in, not lighter. That inversion is what makes the board read.
+   --------------------------------------------------------------------------- */
+:root {
+  /* Grounds */
+  --bg: #0f0f12;          /* the page */
+  --bg-elevated: #16161d; /* cards, panels, footer */
+  --chrome: #000000;      /* header, bottom nav — black in BOTH themes */
+  --surface: #000000;     /* league bars, chips, section heads — flips */
+  --surface-2: #26272b;   /* chips, inputs */
+  --surface-3: #1b1c20;
+  --line: #26272b;        /* dividers */
+  --odds-btn: #0a0a0d;    /* darker than the card it sits in */
+  --disabled: #2c2d30;
+
+  /* Brand */
+  --accent: #f5b51b;      /* prime gold */
+  --accent-ink: #000000;  /* type on gold */
+  --accent-dim: #d99b0a;
+  --focus: #ffd166;
+
+  /* Type */
+  --text: #f4f4f5;
+  --text-muted: #9ca0a8;
+  --text-faint: #5b5e66;
+  --text-bright: #ffffff;
+
+  /* State */
+  --win: #00bb7f;
+  --win-2: #04976b;
+  --lose: #e50539;
+  --lose-bg: #460809;
+  --pending: #fcbb00;
+  --live: #e50539;
+  --hint: #34b4ff;
+  --hint-bg: #123a63;
+
+  /* Form fields sit on the dark ground like the rest of the app; the gold
+     accent marks focus. */
+  --field: #16161d;
+  --field-line: #2c2d30;
+  --input: #101013;
+  --input-ink: #f7f7f8;
+  --input-placeholder: #71717a;
+
+  --radius: 12px;
+}
+
+/* ---------------------------------------------------------------------------
+   The white theme, toggled from the header. Only the chrome (header, bottom
+   nav) stays black — that black-on-light contrast is the reference's light
+   mode. Anything that sits ON the chrome uses literal white/gold classes,
+   never the flipping tokens. Everything else, league bars included, flips
+   here along with its ink.
+   ------------------------------------------------------------------------- */
+:root[data-theme="light"] {
+  --bg: #f1f5f9;
+  --bg-elevated: #ffffff;
+  --surface: #e2e8f0;
+  --surface-2: #e2e8f0;
+  --surface-3: #eef2f7;
+  --line: #e2e8f0;
+  --odds-btn: #e8edf3;
+  --disabled: #cbd5e1;
+
+  --accent: #d99b0a; /* darker gold so type keeps contrast on white */
+  --accent-dim: #b8860b;
+
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --text-faint: #94a3b8;
+  --text-bright: #0f172a;
+
+  --lose-bg: #fbe3e5;
+  --hint-bg: #dbeafe;
+
+  --field: #ffffff;
+  --field-line: #cbd5e1;
+  --input: #ffffff;
+  --input-ink: #0f172a;
+  --input-placeholder: #94a3b8;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-odds-btn: var(--odds-btn);
+  --color-disabled: var(--disabled);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-dim: var(--accent-dim);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-win: var(--win);
+  --color-lose: var(--lose);
+  --color-pending: var(--pending);
+  --color-live: var(--live);
+  --color-hint: var(--hint);
+  --color-field: var(--field);
+  --color-input: var(--input);
+}
+
+html {
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  /* Inter is the interface face (betafrica.site's build), with a
+     metric-friendly fallback stack so the layout does not shift before the
+     webfont lands. */
+  font-family: var(--font-sans), -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", "Noto Sans", Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  overscroll-behavior-y: none;
+}
+
+/* Bebas Neue — the display face for the wordmark and big numbers. */
+.font-display {
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+  letter-spacing: 0.04em;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Sportsbook rows are dense; the scrollbar is noise. */
+.scroll-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+/* The gold glow the reference hangs on its betslip button and active nav. */
+.glow-gold {
+  box-shadow: 0 0 20px rgba(245, 181, 27, 0.4);
+}
+.glow-gold-sm {
+  box-shadow: 0 0 8px rgba(245, 181, 27, 0.7);
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+.live-dot {
+  animation: blink 1.4s ease-in-out infinite;
+}
+
+/* The winners marquee: one continuous right-to-left crawl, like the
+   reference's LIVE TICKER strip. The track holds two copies of the row, so
+   -50% lines the second copy up exactly where the first began. */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.marquee {
+  animation: marquee 28s linear infinite;
+}
+
+/* Price movement, the way a board shows it: a brief tint, not a jump. */
+@keyframes odds-rise {
+  0% { color: var(--win); }
+  100% { color: var(--text); }
+}
+@keyframes odds-fall {
+  0% { color: var(--lose); }
+  100% { color: var(--text); }
+}
+.odds-rise { animation: odds-rise 1.2s ease-out; }
+.odds-fall { animation: odds-fall 1.2s ease-out; }
+
+/* ---------------------------------------------------------------------------
+   The win celebration.
+
+   A win should land, not fade in. The cup is thrown up with a little overshoot
+   and then left breathing; the burst turns behind it; the sparkles are offset
+   so they never blink together. Everything below is decoration, so all of it
+   stops for a player who has asked for less motion.
+   ------------------------------------------------------------------------- */
+
+@keyframes cup-in {
+  0%   { transform: scale(0.55) translateY(30px); opacity: 0; }
+  55%  { transform: scale(1.08) translateY(-8px); opacity: 1; }
+  75%  { transform: scale(0.97) translateY(2px); }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+.win-cup { animation: cup-in 0.72s cubic-bezier(0.22, 0.9, 0.3, 1.2) both; }
+
+@keyframes cup-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-9px); }
+}
+.win-cup-float { animation: cup-float 3.4s ease-in-out 0.8s infinite; }
+
+@keyframes win-line-in {
+  from { transform: translateY(14px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+.win-line { animation: win-line-in 0.5s ease-out both; }
+
+@keyframes confetti-fall {
+  0%   { transform: translate3d(0, -12vh, 0) rotate(0deg); opacity: 0; }
+  8%   { opacity: 1; }
+  100% { transform: translate3d(var(--drift, 0px), 104vh, 0) rotate(760deg); opacity: 0; }
+}
+.confetti-piece {
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 13px;
+  border-radius: 2px;
+  animation-name: confetti-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .win-cup,
+  .win-cup-float,
+  .win-line,
+  .confetti-piece,
+  .marquee {
+    animation: none;
+  }
+  .confetti-piece { display: none; }
+}
